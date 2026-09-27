@@ -1,1 +1,9 @@
-print("tem bosta nenhuma aqui")
+import django
+
+
+def main():
+
+
+
+if __name__ == "__main__":
+    main()
