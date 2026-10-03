@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Espiada — Painel de Monitoramento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy-900:#141B4D;
+  --navy-800:#1D2766;
+  --accent:#E8592C;
+  --accent-soft:#FCE7DD;
+  --bg:#FFFFFF;
+  --surface:#FFFFFF;
+  --card-bg:#FAFAFD;
+  --border:#E3E5EF;
+  --text:#1B1E2E;
+  --text-soft:#6A6F87;
+  --risk-high:#C6433B; --risk-high-bg:#FAE4E2;
+  --risk-med:#C98A2C;  --risk-med-bg:#FBF0DD;
+  --risk-low:#2E8B57;  --risk-low-bg:#E3F3E8;
+  --font:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-padding-top:calc(96px + env(safe-area-inset-top,0px));}
+body{font-family:var(--font);background:var(--bg);color:var(--text);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);min-height:100%;}
+
+/* Header */
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:#fff; border-bottom:1px solid var(--border);
+}
+.header-inner{
+  max-width:1180px; margin:0 auto; padding:14px 28px;
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
+}
+.brand{display:flex; align-items:center; gap:11px; flex-shrink:0;}
+.mark{width:32px;height:32px;flex-shrink:0;}
+.brand-text h1{font-size:15.5px;font-weight:800;color:var(--navy-900);line-height:1.15;}
+.brand-text p{font-size:10px;color:var(--text-soft);margin-top:1px;}
+nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
+.nav-item{
+  display:flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px;
+  color:var(--text-soft); font-size:13.5px; font-weight:500; cursor:pointer; border:none; background:none;
+  transition:background .15s,color .15s; white-space:nowrap;
+}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-item:hover{background:var(--card-bg); color:var(--text);}
+.nav-item.active{background:var(--accent-soft); color:var(--accent);}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--navy-900);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+
+/* Page title row */
+.pagehead{border-bottom:1px solid var(--border);}
+.pagehead-inner{max-width:1180px;margin:0 auto;padding:20px 28px 18px;}
+.pagehead h2{font-size:20px;font-weight:700;}
+.pagehead p{font-size:13px;color:var(--text-soft);margin-top:3px;}
+
+.content{max-width:1180px; margin:0 auto; padding:26px 28px 60px;}
+.section{display:none;}
+.section.active{display:block; animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+/* Cards / stats */
+.stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px;}
+.stat-card{background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:18px;}
+.stat-card .lbl{font-size:12px; color:var(--text-soft); font-weight:500;}
+.stat-card .num{font-size:28px; font-weight:800; margin-top:6px;}
+.stat-card.high .num{color:var(--risk-high);}
+.stat-card.med .num{color:var(--risk-med);}
+.stat-card.low .num{color:var(--risk-low);}
+
+.panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:18px;}
+.panel h3{font-size:15px; font-weight:700; margin-bottom:14px;}
+.two-col{display:grid; grid-template-columns:1.3fr 1fr; gap:18px;}
+
+.bar-row{display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px;}
+.bar-row .name{width:66px; color:var(--text-soft); flex-shrink:0;}
+.bar-track{flex:1; height:9px; background:var(--card-bg); border:1px solid var(--border); border-radius:5px; overflow:hidden;}
+.bar-fill{height:100%; border-radius:5px;}
+.bar-row .val{width:34px; text-align:right; font-weight:600;}
+
+.mini-list{display:flex; flex-direction:column; gap:10px;}
+.mini-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+.mini-row:last-child{border-bottom:none;}
+.mini-row .who{font-weight:600;}
+.mini-row .meta{color:var(--text-soft); font-size:12px;}
+
+/* Filters + table */
+.filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+.filters input, .filters select{
+  border:1px solid var(--border); background:#fff; border-radius:8px; padding:9px 12px;
+  font-family:var(--font); font-size:13.5px; color:var(--text);
+}
+.filters input{flex:1; min-width:180px;}
+table{width:100%; border-collapse:collapse; font-size:13.5px;}
+thead th{text-align:left; font-size:11.5px; color:var(--text-soft); font-weight:600; padding:0 12px 10px; border-bottom:1px solid var(--border);}
+tbody td{padding:12px; border-bottom:1px solid var(--border);}
+tbody tr{cursor:pointer; transition:background .12s;}
+tbody tr:hover{background:var(--card-bg);}
+tbody tr:last-child td{border-bottom:none;}
+.badge{display:inline-block; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600;}
+.badge.alto{color:var(--risk-high); background:var(--risk-high-bg);}
+.badge.medio{color:var(--risk-med); background:var(--risk-med-bg);}
+.badge.baixo{color:var(--risk-low); background:var(--risk-low-bg);}
+.table-wrap{overflow-x:auto;}
+
+/* Predições */
+.predict-box{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px;}
+.predict-box select{border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:var(--font); font-size:13.5px; background:#fff; color:var(--text); min-width:220px;}
+.btn{background:var(--accent); color:#fff; border:none; border-radius:8px; padding:10px 18px; font-family:var(--font); font-size:13.5px; font-weight:600; cursor:pointer;}
+.btn:hover{filter:brightness(.94);}
+.predict-result{display:none;}
+.predict-result.show{display:block;}
+.gauge-row{display:flex; align-items:center; gap:16px; margin-bottom:16px;}
+.gauge-badge{padding:8px 16px; border-radius:9px; font-weight:700; font-size:14px;}
+.factor{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+.factor:last-child{border-bottom:none;}
+.factor .tag{font-size:11px; padding:2px 8px; border-radius:6px; font-weight:600;}
+.tag.neg{background:var(--risk-high-bg); color:var(--risk-high);}
+.tag.ok{background:var(--risk-low-bg); color:var(--risk-low);}
+.note{font-size:12.5px; color:var(--text-soft); margin-top:14px; line-height:1.6; border-top:1px solid var(--border); padding-top:14px;}
+
+.placeholder{padding:60px 20px; text-align:center; color:var(--text-soft);}
+.placeholder svg{width:38px;height:38px; margin-bottom:14px; opacity:.5;}
+.placeholder h3{color:var(--text); font-size:15px; margin-bottom:6px;}
+.placeholder p{font-size:13px; max-width:340px; margin:0 auto;}
+
+/* Modal */
+.overlay{position:fixed; inset:0; background:rgba(10,12,25,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
+.overlay.show{display:flex;}
+.modal{background:#fff; border:1px solid var(--border); border-radius:14px; width:100%; max-width:440px; max-height:86vh; overflow-y:auto; padding:24px;}
+.modal-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;}
+.modal-head h3{font-size:16px; font-weight:700;}
+.modal-head .meta{font-size:12.5px; color:var(--text-soft); margin-top:3px;}
+.modal-close{background:none; border:none; font-size:20px; color:var(--text-soft); cursor:pointer; line-height:1;}
+.detail-row{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+.detail-row:last-child{border-bottom:none;}
+.detail-row .k{color:var(--text-soft);}
+.detail-row .v{font-weight:600;}
+
+@media (max-width:900px){
+  .header-inner{flex-wrap:wrap; padding:12px 16px;}
+  nav{order:3; width:100%; justify-content:flex-start; overflow-x:auto; gap:2px;}
+  .pagehead-inner, .content{padding-left:16px; padding-right:16px;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" fill="none">
+        <path d="M2 20s6.5-11 18-11 18 11 18 11-6.5 11-18 11-18-11-18-11z" stroke="var(--navy-900)" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="5.5" fill="var(--accent)"/>
+      </svg>
+      <div class="brand-text"><h1>SIMPA</h1><p>Monitoramento e Predição Acadêmica</p></div>
+    </div>
+    <nav>
+      <button class="nav-item active" data-section="painel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Painel
+      </button>
+      <button class="nav-item" data-section="monitoramento">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-6 4 8 3-5 4 3 3-4"/></svg>
+        Monitoramento
+      </button>
+      <button class="nav-item" data-section="predicoes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        Predições
+      </button>
+      <button class="nav-item" data-section="turmas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Turmas
+      </button>
+      <button class="nav-item" data-section="relatorios">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/></svg>
+        Relatórios
+      </button>
+      <button class="nav-item" data-section="config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        Config.
+      </button>
+    </nav>
+  </div>
+</header>
+
+<div class="pagehead">
+  <div class="pagehead-inner">
+    <h2 id="topbarTitle">Painel geral</h2>
+    <p id="topbarSub">Visão consolidada do risco de evasão acadêmica</p>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- PAINEL -->
+  <section class="section active" id="sec-painel">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="two-col">
+      <div class="panel">
+        <h3>Distribuição de risco por curso</h3>
+        <div id="barsByCourse"></div>
+      </div>
+      <div class="panel">
+        <h3>Alunos em risco crítico</h3>
+        <div class="mini-list" id="criticalList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MONITORAMENTO -->
+  <section class="section" id="sec-monitoramento">
+    <div class="panel">
+      <div class="filters">
+        <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
+        <select id="filterCurso"><option value="">Todos os cursos</option></select>
+        <select id="filterRisco">
+          <option value="">Todos os níveis de risco</option>
+          <option value="alto">Alto risco</option>
+          <option value="medio">Médio risco</option>
+          <option value="baixo">Baixo risco</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Aluno</th><th>Curso / Turma</th><th>Frequência</th><th>Nota média</th><th>Engaj. AVA</th><th>Risco</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREDICOES -->
+  <section class="section" id="sec-predicoes">
+    <div class="panel">
+      <h3>Gerar predição individual</h3>
+      <div class="predict-box">
+        <select id="predictSelect"></select>
+        <button class="btn" id="predictBtn">Gerar predição</button>
+      </div>
+      <div class="predict-result" id="predictResult">
+        <div class="gauge-row">
+          <span class="gauge-badge" id="gaugeBadge">—</span>
+          <span style="font-size:13px;color:var(--text-soft)" id="gaugeText"></span>
+        </div>
+        <div id="factorsList"></div>
+        <p class="note">O módulo de predição consome os indicadores de monitoramento pela API REST interna do SIMPA e utiliza um modelo Ollama isolado apenas para a etapa de classificação — mantendo a API principal determinística, auditável e independente do serviço de IA.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TURMAS -->
+  <section class="section" id="sec-turmas">
+    <div class="panel placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <h3>Turmas e cursos</h3>
+      <p>Nesta versão de exemplo, a gestão de turmas e cursos ainda não foi implementada. Os dados aparecem agrupados nas telas de Painel e Monitoramento.</p>
+    </div>
+  </section>
+
+  <!-- RELATORIOS -->
+  <section class="section" id="sec-relatorios">
+    <div class="panel placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/></svg>
+      <h3>Relatórios</h3>
+      <p>A exportação de relatórios para coordenação e secretaria é um módulo planejado para uma próxima etapa do protótipo.</p>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section class="section" id="sec-config">
+    <div class="panel placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M4 12h2m12 0h2M12 4v2m0 12v2"/></svg>
+      <h3>Configurações</h3>
+      <p>Controles de acesso por perfil (aluno, professor, coordenação) e regras de alerta ficarão disponíveis aqui.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+const alunos = [];
+const riskLabel = {alto:"Alto",medio:"Médio",baixo:"Baixo"};
+const riskColor = {alto:"var(--risk-high)",medio:"var(--risk-med)",baixo:"var(--risk-low)"};
+
+document.querySelectorAll(".nav-item").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("sec-"+btn.dataset.section).classList.add("active");
+    const titles = {painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
+      monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e engajamento"],
+      predicoes:["Predições","Classificação de risco gerada a partir dos indicadores monitorados"],
+      turmas:["Turmas e cursos","Organização por curso e turma"],
+      relatorios:["Relatórios","Exportação de dados para coordenação"],
+      config:["Configurações","Perfis de acesso e regras do sistema"]};
+    const t = titles[btn.dataset.section];
+    document.getElementById("topbarTitle").textContent = t[0];
+    document.getElementById("topbarSub").textContent = t[1];
+  });
+});
+
+function renderStats(){
+  const counts = {alto:0,medio:0,baixo:0};
+  alunos.forEach(a=>counts[a.risco]++);
+  document.getElementById("statGrid").innerHTML = `
+    <div class="stat-card"><div class="lbl">Total monitorados</div><div class="num">${alunos.length}</div></div>
+    <div class="stat-card high"><div class="lbl">Alto risco</div><div class="num">${counts.alto}</div></div>
+    <div class="stat-card med"><div class="lbl">Médio risco</div><div class="num">${counts.medio}</div></div>
+    <div class="stat-card low"><div class="lbl">Baixo risco</div><div class="num">${counts.baixo}</div></div>`;
+}
+function renderBars(){
+  const cursos = [...new Set(alunos.map(a=>a.curso))];
+  const el = document.getElementById("barsByCourse");
+  if(cursos.length===0){ el.innerHTML = `<p style="font-size:13px;color:var(--text-soft)">Nenhum dado de curso disponível ainda.</p>`; return; }
+  el.innerHTML = cursos.map(c=>{
+    const list = alunos.filter(a=>a.curso===c);
+    const alto = list.filter(a=>a.risco==="alto").length;
+    const pct = Math.round((alto/list.length)*100);
+    return `<div class="bar-row"><span class="name">${c.split(" ")[0]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--risk-high)"></div></div>
+      <span class="val">${pct}%</span></div>`;
+  }).join("");
+}
+function renderCritical(){
+  const top = alunos.filter(a=>a.risco==="alto").sort((a,b)=>a.freq-b.freq).slice(0,5);
+  const el = document.getElementById("criticalList");
+  el.innerHTML = top.length ? top.map(a=>`
+    <div class="mini-row"><div><div class="who">${a.nome}</div><div class="meta">${a.curso}</div></div>
+    <span class="badge alto">${a.freq}% freq.</span></div>`).join("")
+    : `<p style="font-size:13px;color:var(--text-soft)">Nenhum aluno em risco crítico no momento.</p>`;
+}
+function renderTable(){
+  const search = document.getElementById("searchInput").value.toLowerCase();
+  const curso = document.getElementById("filterCurso").value;
+  const risco = document.getElementById("filterRisco").value;
+  const rows = alunos.filter(a=>
+    a.nome.toLowerCase().includes(search) &&
+    (curso===""||a.curso===curso) &&
+    (risco===""||a.risco===risco)
+  );
+  document.getElementById("tableBody").innerHTML = rows.map(a=>`
+    <tr data-idx="${alunos.indexOf(a)}">
+      <td>${a.nome}</td>
+      <td>${a.curso}<br><span style="color:var(--text-soft);font-size:12px">${a.turma}</span></td>
+      <td>${a.freq}%</td>
+      <td>${a.nota.toFixed(1)}</td>
+      <td>${a.ava}%</td>
+      <td><span class="badge ${a.risco}">${riskLabel[a.risco]}</span></td>
+    </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:26px">Nenhum aluno encontrado.</td></tr>`;
+  document.querySelectorAll("#tableBody tr[data-idx]").forEach(tr=>{
+    tr.addEventListener("click",()=>openModal(alunos[tr.dataset.idx]));
+  });
+}
+function fillFilterCurso(){
+  const sel = document.getElementById("filterCurso");
+  [...new Set(alunos.map(a=>a.curso))].forEach(c=>{
+    const o = document.createElement("option"); o.value=c; o.textContent=c; sel.appendChild(o);
+  });
+}
+function fillPredictSelect(){
+  const sel = document.getElementById("predictSelect");
+  if(alunos.length===0){
+    sel.innerHTML = `<option value="">Nenhum aluno cadastrado</option>`;
+    sel.disabled = true;
+    document.getElementById("predictBtn").disabled = true;
+    document.getElementById("predictBtn").style.opacity = ".5";
+    document.getElementById("predictBtn").style.cursor = "not-allowed";
+    return;
+  }
+  alunos.forEach((a,i)=>{
+    const o = document.createElement("option"); o.value=i; o.textContent = a.nome; sel.appendChild(o);
+  });
+}
+function openModal(a){
+  document.getElementById("modal").innerHTML = `
+    <div class="modal-head">
+      <div><h3>${a.nome}</h3><div class="meta">${a.curso} — ${a.turma}</div></div>
+      <button class="modal-close" id="modalClose">&times;</button>
+    </div>
+    <span class="badge ${a.risco}" style="margin-bottom:14px;display:inline-block">${riskLabel[a.risco]} risco</span>
+    <div class="detail-row"><span class="k">Frequência</span><span class="v">${a.freq}%</span></div>
+    <div class="detail-row"><span class="k">Nota média</span><span class="v">${a.nota.toFixed(1)}</span></div>
+    <div class="detail-row"><span class="k">Engajamento no AVA</span><span class="v">${a.ava}%</span></div>
+    <div class="detail-row"><span class="k">Reclamações registradas</span><span class="v">${a.reclamacoes}</span></div>
+    <div class="detail-row"><span class="k">Distância até o campus</span><span class="v">${a.distancia} km</span></div>
+  `;
+  document.getElementById("overlay").classList.add("show");
+  document.getElementById("modalClose").addEventListener("click",closeModal);
+}
+function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
+document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
+
+function computeRisk(a){
+  const factors = [];
+  let score = 0;
+  if(a.freq < 75){ factors.push(["Frequência abaixo de 75%", true]); score+=2; } else factors.push(["Frequência adequada", false]);
+  if(a.nota < 6){ factors.push(["Nota média abaixo de 6,0", true]); score+=2; } else factors.push(["Desempenho acadêmico regular", false]);
+  if(a.ava < 50){ factors.push(["Baixo engajamento no AVA", true]); score+=1; } else factors.push(["Engajamento no AVA satisfatório", false]);
+  if(a.reclamacoes > 0){ factors.push([a.reclamacoes+" reclamação(ões) sobre o curso", true]); score+=1; } else factors.push(["Nenhuma reclamação registrada", false]);
+  if(a.distancia > 30){ factors.push(["Distância elevada até o campus", true]); score+=1; } else factors.push(["Distância dentro do esperado", false]);
+  const risco = score>=4 ? "alto" : score>=2 ? "medio" : "baixo";
+  return {risco, factors};
+}
+document.getElementById("predictBtn").addEventListener("click",()=>{
+  if(alunos.length===0){ return; }
+  const a = alunos[document.getElementById("predictSelect").value];
+  const {risco, factors} = computeRisk(a);
+  const badge = document.getElementById("gaugeBadge");
+  badge.textContent = riskLabel[risco]+" risco";
+  badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
+  badge.style.color = riskColor[risco];
+  document.getElementById("gaugeText").textContent = "Classificação para "+a.nome;
+  document.getElementById("factorsList").innerHTML = factors.map(([label,neg])=>`
+    <div class="factor"><span>${label}</span><span class="tag ${neg?'neg':'ok'}">${neg?'Fator de risco':'Regular'}</span></div>`).join("");
+  document.getElementById("predictResult").classList.add("show");
+});
+
+renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
+["searchInput","filterCurso","filterRisco"].forEach(id=>{
+  document.getElementById(id).addEventListener("input",renderTable);
+  document.getElementById(id).addEventListener("change",renderTable);
+});
+</script>
+</body>
+</html>
