@@ -1,5 +1,4 @@
-import django
-
+from django.db import models
 
 def main():
 
