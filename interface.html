@@ -402,32 +402,24 @@ function openModal(a){
 function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
 
-function computeRisk(a){
-  const factors = [];
-  let score = 0;
-  if(a.freq < 75){ factors.push(["Frequência abaixo de 75%", true]); score+=2; } else factors.push(["Frequência adequada", false]);
-  if(a.nota < 6){ factors.push(["Nota média abaixo de 6,0", true]); score+=2; } else factors.push(["Desempenho acadêmico regular", false]);
-  if(a.ava < 50){ factors.push(["Baixo engajamento no AVA", true]); score+=1; } else factors.push(["Engajamento no AVA satisfatório", false]);
-  if(a.reclamacoes > 0){ factors.push([a.reclamacoes+" reclamação(ões) sobre o curso", true]); score+=1; } else factors.push(["Nenhuma reclamação registrada", false]);
-  if(a.distancia > 30){ factors.push(["Distância elevada até o campus", true]); score+=1; } else factors.push(["Distância dentro do esperado", false]);
-  const risco = score>=4 ? "alto" : score>=2 ? "medio" : "baixo";
-  return {risco, factors};
-}
-document.getElementById("predictBtn").addEventListener("click",()=>{
+document.getElementById("predictBtn").addEventListener("click",async ()=>{
   if(alunos.length===0){ return; }
   const a = alunos[document.getElementById("predictSelect").value];
-  const {risco, factors} = computeRisk(a);
+  const {risco, fatores} = await fetch(`/api/alunos/${a.matricula}/predicao`,{method:"POST"}).then(r=>r.json());
   const badge = document.getElementById("gaugeBadge");
   badge.textContent = riskLabel[risco]+" risco";
   badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
   badge.style.color = riskColor[risco];
   document.getElementById("gaugeText").textContent = "Classificação para "+a.nome;
-  document.getElementById("factorsList").innerHTML = factors.map(([label,neg])=>`
+  document.getElementById("factorsList").innerHTML = fatores.map(({descricao:label,negativo:neg})=>`
     <div class="factor"><span>${label}</span><span class="tag ${neg?'neg':'ok'}">${neg?'Fator de risco':'Regular'}</span></div>`).join("");
   document.getElementById("predictResult").classList.add("show");
 });
 
-renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
+fetch("/api/alunos").then(r=>r.json()).then(lista=>{
+  alunos.push(...lista);
+  renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
+});
 ["searchInput","filterCurso","filterRisco"].forEach(id=>{
   document.getElementById(id).addEventListener("input",renderTable);
   document.getElementById(id).addEventListener("change",renderTable);
