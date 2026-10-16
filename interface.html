@@ -338,7 +338,7 @@ function renderCritical(){
   const el = document.getElementById("criticalList");
   el.innerHTML = top.length ? top.map(a=>`
     <div class="mini-row"><div><div class="who">${a.nome}</div><div class="meta">${a.curso}</div></div>
-    <span class="badge alto">${a.freq}% freq.</span></div>`).join("")
+    <span class="badge alto">${a.freq??"—"}% freq.</span></div>`).join("")
     : `<p style="font-size:13px;color:var(--text-soft)">Nenhum aluno em risco crítico no momento.</p>`;
 }
 function renderTable(){
@@ -353,10 +353,10 @@ function renderTable(){
   document.getElementById("tableBody").innerHTML = rows.map(a=>`
     <tr data-idx="${alunos.indexOf(a)}">
       <td>${a.nome}</td>
-      <td>${a.curso}<br><span style="color:var(--text-soft);font-size:12px">${a.turma}</span></td>
-      <td>${a.freq}%</td>
-      <td>${a.nota.toFixed(1)}</td>
-      <td>${a.ava}%</td>
+      <td>${a.curso}<br><span style="color:var(--text-soft);font-size:12px">${a.turma??""}</span></td>
+      <td>${a.freq??"—"}%</td>
+      <td>${a.nota==null?"—":a.nota.toFixed(1)}</td>
+      <td>${a.ava??"—"}%</td>
       <td><span class="badge ${a.risco}">${riskLabel[a.risco]}</span></td>
     </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:26px">Nenhum aluno encontrado.</td></tr>`;
   document.querySelectorAll("#tableBody tr[data-idx]").forEach(tr=>{
@@ -386,13 +386,13 @@ function fillPredictSelect(){
 function openModal(a){
   document.getElementById("modal").innerHTML = `
     <div class="modal-head">
-      <div><h3>${a.nome}</h3><div class="meta">${a.curso} — ${a.turma}</div></div>
+      <div><h3>${a.nome}</h3><div class="meta">${a.curso} — ${a.turma??""}</div></div>
       <button class="modal-close" id="modalClose">&times;</button>
     </div>
     <span class="badge ${a.risco}" style="margin-bottom:14px;display:inline-block">${riskLabel[a.risco]} risco</span>
-    <div class="detail-row"><span class="k">Frequência</span><span class="v">${a.freq}%</span></div>
-    <div class="detail-row"><span class="k">Nota média</span><span class="v">${a.nota.toFixed(1)}</span></div>
-    <div class="detail-row"><span class="k">Engajamento no AVA</span><span class="v">${a.ava}%</span></div>
+    <div class="detail-row"><span class="k">Frequência</span><span class="v">${a.freq??"—"}%</span></div>
+    <div class="detail-row"><span class="k">Nota média</span><span class="v">${a.nota==null?"—":a.nota.toFixed(1)}</span></div>
+    <div class="detail-row"><span class="k">Engajamento no AVA</span><span class="v">${a.ava??"—"}%</span></div>
     <div class="detail-row"><span class="k">Reclamações registradas</span><span class="v">${a.reclamacoes}</span></div>
     <div class="detail-row"><span class="k">Distância até o campus</span><span class="v">${a.distancia} km</span></div>
   `;
