@@ -111,6 +111,7 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    pip install -r requirements.txt
    ```
+   A única dependência externa é o **Flask**, que já instala junto Werkzeug, Jinja2, MarkupSafe, ItsDangerous, Click e Blinker. O `sqlite3` já vem com o Python.
 4. Rode o servidor:
    ```bash
    python src/Espiada.py
