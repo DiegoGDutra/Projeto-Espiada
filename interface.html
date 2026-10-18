@@ -229,7 +229,7 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Aluno</th><th>Curso / Turma</th><th>Frequência</th><th>Nota média</th><th>Engaj. AVA</th><th>Risco</th></tr></thead>
+          <thead><tr><th>Aluno</th><th>Curso / Turma</th><th>Frequência</th><th>Nota média</th><th>Reprovações</th><th>Risco</th></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -300,7 +300,7 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
     btn.classList.add("active");
     document.getElementById("sec-"+btn.dataset.section).classList.add("active");
     const titles = {painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
-      monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e engajamento"],
+      monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e reprovações"],
       predicoes:["Predições","Classificação de risco gerada a partir dos indicadores monitorados"],
       turmas:["Turmas e cursos","Organização por curso e turma"],
       relatorios:["Relatórios","Exportação de dados para coordenação"],
@@ -356,7 +356,7 @@ function renderTable(){
       <td>${a.curso}<br><span style="color:var(--text-soft);font-size:12px">${a.turma??""}</span></td>
       <td>${a.freq??"—"}%</td>
       <td>${a.nota==null?"—":a.nota.toFixed(1)}</td>
-      <td>${a.ava??"—"}%</td>
+      <td>${a.reprovacoes}</td>
       <td><span class="badge ${a.risco}">${riskLabel[a.risco]}</span></td>
     </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:26px">Nenhum aluno encontrado.</td></tr>`;
   document.querySelectorAll("#tableBody tr[data-idx]").forEach(tr=>{
@@ -392,7 +392,7 @@ function openModal(a){
     <span class="badge ${a.risco}" style="margin-bottom:14px;display:inline-block">${riskLabel[a.risco]} risco</span>
     <div class="detail-row"><span class="k">Frequência</span><span class="v">${a.freq??"—"}%</span></div>
     <div class="detail-row"><span class="k">Nota média</span><span class="v">${a.nota==null?"—":a.nota.toFixed(1)}</span></div>
-    <div class="detail-row"><span class="k">Engajamento no AVA</span><span class="v">${a.ava??"—"}%</span></div>
+    <div class="detail-row"><span class="k">Reprovações no histórico</span><span class="v">${a.reprovacoes}</span></div>
     <div class="detail-row"><span class="k">Reclamações registradas</span><span class="v">${a.reclamacoes}</span></div>
     <div class="detail-row"><span class="k">Distância até o campus</span><span class="v">${a.distancia} km</span></div>
   `;

@@ -1,0 +1,19 @@
+docente_id,nome_sintetico,titulacao,regime_trabalho
+1,Docente Ada,Mestre,Tempo integral
+2,Docente Alan,Especialista,Tempo integral
+3,Docente Barbara,Mestre,Tempo integral
+4,Docente Carlos,Mestre,Tempo parcial
+5,Docente Cecilia,Mestre,Tempo integral
+6,Docente Dijkstra,Especialista,Tempo parcial
+7,Docente Edsger,Mestre,Tempo integral
+8,Docente Fernanda,Doutor,Tempo integral
+9,Docente Grace,Especialista,Tempo integral
+10,Docente Henrique,Doutor,Tempo parcial
+11,Docente Joana,Especialista,Tempo parcial
+12,Docente Katherine,Doutor,Tempo integral
+13,Docente Linus,Especialista,Tempo integral
+14,Docente Mariana,Mestre,Tempo parcial
+15,Docente Niklaus,Especialista,Tempo integral
+16,Docente Patricia,Doutor,Tempo integral
+17,Docente Roberto,Doutor,Tempo integral
+18,Docente Simone,Mestre,Tempo integral

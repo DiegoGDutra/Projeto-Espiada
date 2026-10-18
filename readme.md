@@ -8,31 +8,37 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 |---|---|
 | Back-end | Python 3.10+ com Flask |
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
+| Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
 | Front-end | HTML + CSS + JavaScript puro (`login.html`, `interface.html`) |
 | Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
 
 ## Banco de dados
 
 As tabelas estão em [`src/schema.sql`](src/schema.sql) e são criadas sozinhas quando o servidor sobe.
-Para recriar o banco do zero: apague `src/funcionaai.db` e rode o servidor de novo.
+
+**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência (RN11).
+Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de novo.
 
 | Tabela | Guarda |
 |---|---|
-| `usuario` | login de aluno, professor e secretaria (matrícula é a chave, senha só em hash) |
-| `curso`, `materia`, `turma` | estrutura acadêmica; a turma liga matéria + professor |
-| `aluno` | dados do aluno (curso, período, situação, distância) |
-| `desempenho_aluno` | notas (0 a 100) e faltas de cada aluno em cada turma |
-| `log_ava` | cada acesso ao AVA |
-| `financeiro` | mensalidades atrasadas |
-| `feedback` | comentários do aluno sobre o curso ou a instituição |
-| `predicao_ia` | histórico de predições de risco (baixo/médio/alto); alteração manual exige justificativa |
+| `cursos`, `periodos_curriculares`, `disciplinas`, `turmas`, `docentes` | estrutura acadêmica; a turma liga disciplina + docente num semestre |
+| `alunos` | aluno; `codigo_academico` (ex.: `AES0001`) é a matrícula (RN01) |
+| `matriculas_curso` | vínculo do aluno com o curso (período atual, turno, status) |
+| `registros_academicos` | notas (0 a 100) e frequência de cada aluno em cada turma e tentativa |
+| `enderecos_alunos`, `cidades` | onde o aluno mora e a distância até Anápolis |
+| `perfis_socioeconomicos`, `tipos_bolsa`, `bolsas_alunos` | renda, trabalho, bolsas e financiamentos |
+| `indicadores_risco` | risco já calculado pelo dataset (não usar como entrada da predição: vazamento) |
+| `desfechos_alunos` | gabarito: evasão observada em 12 meses, para avaliar a predição |
+| `usuario` | login de aluno, professor e secretaria (senha só em hash) — do sistema |
+| `feedback` | comentários do aluno sobre o curso ou a instituição — do sistema |
+| `predicao_ia` | histórico de predições do sistema (baixo/médio/alto); alteração manual exige justificativa — do sistema |
 
-Para conferir as regras do banco: `python src/test_banco.py`
+Para conferir as regras do banco: `python src/teste_banco.py`
 
 ## API
 
 Tudo fica em `/api/...`, é organizado por recurso e usa JSON na entrada e na saída (RNF02).
-Para conferir as rotas: `python src/test_api.py`
+Para conferir as rotas: `python src/teste_api.py`
 
 **Padrão das respostas**
 
@@ -50,30 +56,25 @@ Um indicador sem dado ainda (ex.: aluno sem notas) vem como `null`.
 
 | Método | Rota | Corpo (entrada) | Resposta |
 |---|---|---|---|
-| GET | `/api/cursos` | — | lista de `{id_curso, nome_curso}` |
-| POST | `/api/cursos` | **nome_curso** | o curso criado |
-| GET | `/api/materias` | — | lista de `{id_materia, id_curso, nome_materia}` |
-| POST | `/api/materias` | **id_curso**, **nome_materia** | a matéria criada |
-| GET | `/api/turmas` | — | lista de `{id_turma, id_materia, matricula_professor, semestre}` |
-| POST | `/api/turmas` | **id_materia**, **semestre**, matricula_professor | a turma criada |
+| GET | `/api/cursos` | — | lista de cursos |
+| GET | `/api/disciplinas` | — | lista de disciplinas |
+| GET | `/api/docentes` | — | lista de docentes |
+| GET | `/api/turmas` | — | lista de turmas |
 | GET | `/api/alunos` | — | lista de resumos do aluno (abaixo) |
-| GET | `/api/alunos/{matricula}` | — | resumo + `disciplinas` (notas e faltas por turma) |
-| POST | `/api/alunos` | **matricula**, **nome**, **senha**, **id_curso**, **situacao**, email, periodo, data_ingresso, distancia_km | o resumo do aluno |
-| PUT | `/api/alunos/{matricula}/desempenho` | **id_turma**, nota_cic1..3, media_final, total_aulas, faltas_totais, situacao_materia | o resumo atualizado |
-| POST | `/api/alunos/{matricula}/ava` | **data_acesso**, **min_sessao** | o acesso registrado |
+| GET | `/api/alunos/{matricula}` | — | resumo + `disciplinas` (notas e frequência por turma e tentativa) |
 | POST | `/api/alunos/{matricula}/feedback` | **alvo** (`curso` ou `instituicao`), comentarios, avaliacao_curso (1–5) | o feedback registrado |
 | POST | `/api/alunos/{matricula}/predicao` | — | `{matricula, risco, score, fatores}` e grava no histórico |
 | GET | `/api/alunos/{matricula}/predicao` | — | histórico de predições, da mais nova para a mais antiga |
 
-A senha é guardada só em hash e nunca volta nas respostas. O `PUT .../desempenho` é a porta de entrada da importação do AVA (semana 04); na semana 03 ele fica restrito ao importador, porque nota e falta não se editam à mão (RN11).
+`{matricula}` é o `codigo_academico` do aluno (ex.: `AES0001`). Não existe rota para criar ou alterar nota e frequência: elas vêm só do importador (RN11).
 
 **Resumo do aluno** (`GET /api/alunos`, o que o painel usa):
 
 ```json
 {
-  "matricula": 2024001, "nome": "Ana", "curso": "Engenharia de Software", "turma": "Cálculo",
-  "periodo": 2, "situacao": 1, "distancia": 40,
-  "freq": 50.0, "nota": 50.0, "ava": 10.0, "reclamacoes": 1, "risco": "alto"
+  "matricula": "AES0001", "nome": "Estudante Sintético 001", "curso": "Engenharia de Software",
+  "turma": "Lógica de Programação, Matemática Discreta, ...", "periodo": 1, "situacao": "ATIVO",
+  "distancia": 55.0, "freq": 92.8, "nota": 88.9, "reprovacoes": 0, "reclamacoes": 0, "risco": "baixo"
 }
 ```
 
@@ -81,7 +82,7 @@ A senha é guardada só em hash e nunca volta nas respostas. O `PUT .../desempen
 
 ```json
 {
-  "matricula": 2024001, "risco": "alto", "score": 7,
+  "matricula": "AES0001", "risco": "alto", "score": 7,
   "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": true}]
 }
 ```
@@ -89,7 +90,7 @@ A senha é guardada só em hash e nunca volta nas respostas. O `PUT .../desempen
 **Erro:**
 
 ```json
-{"erro": "campos obrigatórios: matricula, senha"}
+{"erro": "campos obrigatórios: alvo"}
 ```
 
 ## Como executar
@@ -112,11 +113,15 @@ Precisa do **Python 3.10+** instalado.
    pip install -r requirements.txt
    ```
    A única dependência externa é o **Flask**, que já instala junto Werkzeug, Jinja2, MarkupSafe, ItsDangerous, Click e Blinker. O `sqlite3` já vem com o Python.
-4. Rode o servidor:
+4. Importe o dataset para o banco (só na primeira vez):
+   ```bash
+   python src/importar.py
+   ```
+5. Rode o servidor:
    ```bash
    python src/Espiada.py
    ```
-5. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); ao clicar em **Acessar** vai para o painel (`interface.html`), que consome a API (`/api/...`).
+6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); ao clicar em **Acessar** vai para o painel (`interface.html`), que consome a API (`/api/...`).
 
 Para parar o servidor: `Ctrl+C` no terminal.
 
@@ -124,11 +129,11 @@ Para parar o servidor: `Ctrl+C` no terminal.
 
 ### Visão geral
 
-Os dados acadêmicos vêm só do lyceum via webscraping (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
+Os dados acadêmicos vêm do dataset sintético fornecido, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
 
 ```mermaid
 flowchart LR
-    AVA["API do AVA<br/>notas, faltas, acessos"] -->|importação| API
+    AVA["Dataset sintético (dados/)<br/>notas, frequência, perfil"] -->|importar.py| DB
     subgraph Servidor["Servidor Flask (src/Espiada.py)"]
         API["API /api/..."]
         CALC["Cálculo de risco<br/>regras + pesos"]
@@ -159,11 +164,11 @@ flowchart TD
 
 ### Predição de risco
 
-Roda sempre que chegam dados novos do AVA (RF10). Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde.
+Roda sempre que chegam dados novos (RF10). Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde.
 
 ```mermaid
 flowchart TD
-    N["Dados novos do AVA"] --> I["Calcula indicadores<br/>frequência, nota, acesso ao AVA"]
+    N["Dados novos importados"] --> I["Calcula indicadores<br/>frequência, nota, reprovações"]
     I --> R["Aplica as regras de risco<br/>(pontuação abaixo)"]
     R --> L["LLM avalia o contexto<br/>notas, faltas, entregas, feedback"]
     L --> S["Salva predição no histórico<br/>baixo / médio / alto"]
@@ -178,24 +183,32 @@ flowchart TD
 
 ```mermaid
 erDiagram
-    usuario ||--o| aluno : "é"
-    usuario ||--o{ turma : "leciona"
-    curso ||--o{ aluno : "tem"
-    curso ||--o{ materia : "tem"
-    materia ||--o{ turma : "é dada em"
-    turma ||--o{ desempenho_aluno : "registra"
-    aluno ||--o{ desempenho_aluno : "tem"
-    aluno ||--o{ log_ava : "acessa"
-    aluno ||--o| financeiro : "tem"
-    aluno ||--o{ feedback : "envia"
-    aluno ||--o{ predicao_ia : "recebe"
-    usuario ||--o{ predicao_ia : "altera"
+    cursos ||--o{ periodos_curriculares : "tem"
+    periodos_curriculares ||--o{ disciplinas : "tem"
+    disciplinas ||--o{ turmas : "é dada em"
+    docentes ||--o{ turmas : "leciona"
+    alunos ||--o{ matriculas_curso : "se matricula"
+    cursos ||--o{ matriculas_curso : "recebe"
+    matriculas_curso ||--o{ registros_academicos : "tem"
+    turmas ||--o{ registros_academicos : "registra"
+    alunos ||--|| enderecos_alunos : "mora"
+    cidades ||--o{ enderecos_alunos : "fica em"
+    alunos ||--o{ perfis_socioeconomicos : "tem"
+    alunos ||--o{ bolsas_alunos : "recebe"
+    tipos_bolsa ||--o{ bolsas_alunos : "é"
+    matriculas_curso ||--o{ indicadores_risco : "tem"
+    matriculas_curso ||--o{ desfechos_alunos : "tem"
+    matriculas_curso ||--o{ predicao_ia : "recebe"
+    alunos ||--o{ feedback : "envia"
+    alunos |o--o| usuario : "loga como"
+    docentes |o--o| usuario : "loga como"
 ```
 
 ### Como os indicadores são calculados
 
-- `freq` = 100 × (1 − faltas_totais / total_aulas)
-- `nota` = media_final (0 a 100), ou média das notas de ciclo; média entre as disciplinas
-- `ava` = soma de min_sessao / 600 min (limitado a 100%)
+- `freq` = média de `frequencia_percentual` nos registros acadêmicos do aluno
+- `nota` = média de `nota_final` (ou `nota_parcial` nas disciplinas em curso)
+- `reprovacoes` = registros com situação `REPROVADO_NOTA` ou `REPROVADO_FREQUENCIA`
+- `distancia` = distância rodoviária da cidade onde o aluno mora até Anápolis
 - `reclamacoes` = feedbacks com avaliação 1 ou 2
-- `risco` (`calcular_risco()` em `src/Espiada.py`): freq < 75 (+2), nota < 60 (+2), ava < 50 (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.
+- `risco` (`calcular_risco()` em `src/Espiada.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.

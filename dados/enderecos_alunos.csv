@@ -1,0 +1,121 @@
+endereco_id,aluno_id,cidade_id,logradouro_sintetico,numero_sintetico,complemento_sintetico,bairro_sintetico,cep_sintetico,tempo_deslocamento_min
+1,1,2,Rua das Araras,774,Apto 910,Setor Norte,77191-332,78
+2,2,4,Alameda das Acácias,1349,,Vila Esperança,79459-934,82
+3,3,1,Avenida Central,702,Apto 505,Jundiaí,76758-277,25
+4,4,1,Rua das Quaresmeiras,1239,,Parque das Flores,76164-550,34
+5,5,3,Alameda das Acácias,466,,Vila Nova,78965-031,111
+6,6,1,Rua dos Pioneiros,596,Apto 959,Vila Nova,76961-963,18
+7,7,1,Alameda do Sol,691,,Jardim América,76413-377,32
+8,8,1,Rua dos Ipês,981,,Jundiaí,76152-004,29
+9,9,1,Rua dos Ipês,182,,Boa Vista,76611-179,26
+10,10,14,Alameda do Sol,1369,,Setor Sul,79809-480,94
+11,11,1,Avenida Central,1840,Apto 499,Vila Esperança,76480-716,38
+12,12,1,Rua Horizonte,242,,Boa Vista,76389-796,29
+13,13,3,Avenida Central,458,Apto 719,Setor Sul,78940-703,81
+14,14,2,Alameda das Acácias,241,,Setor Sul,77876-334,97
+15,15,6,Rua dos Ipês,476,,Setor Norte,76151-290,91
+16,16,1,Rua dos Ipês,382,,Vila Esperança,76076-313,29
+17,17,1,Avenida das Palmeiras,149,,Parque das Flores,76632-867,9
+18,18,1,Rua das Araras,372,,Setor Sul,76852-374,22
+19,19,2,Alameda do Sol,1152,,Setor Sul,77710-999,74
+20,20,15,Avenida Central,1753,,Setor Sul,75492-910,122
+21,21,8,Rua dos Ipês,930,,Setor Sul,78934-705,99
+22,22,1,Rua das Quaresmeiras,1672,Apto 505,Boa Vista,76287-317,19
+23,23,1,Rua das Nascentes,706,Apto 1094,Centro,76265-220,36
+24,24,2,Rua do Cerrado,96,,Residencial das Águas,77277-958,98
+25,25,1,Alameda das Acácias,434,,Setor Norte,76021-577,11
+26,26,1,Avenida Universitária,311,,Residencial das Águas,76625-653,37
+27,27,9,Rua das Araras,1857,,Setor Sul,79741-292,119
+28,28,10,Avenida das Palmeiras,1779,,Setor Norte,75111-529,114
+29,29,1,Rua das Araras,1143,,Jundiaí,76542-593,24
+30,30,9,Rua dos Ipês,928,,Centro,79082-429,146
+31,31,14,Rua Horizonte,616,Apto 627,Setor Norte,79191-671,75
+32,32,3,Avenida das Palmeiras,437,Apto 1105,Parque das Flores,78618-383,97
+33,33,1,Rua das Quaresmeiras,1388,,Setor Norte,76480-768,11
+34,34,5,Alameda das Acácias,1656,,Setor Sul,75471-476,59
+35,35,2,Rua das Quaresmeiras,1152,,Boa Vista,77450-843,95
+36,36,3,Avenida Central,1865,Apto 12,Centro,78571-067,94
+37,37,10,Alameda do Sol,499,,Setor Sul,75660-024,88
+38,38,1,Rua das Nascentes,520,,Boa Vista,76843-515,32
+39,39,1,Rua das Araras,1669,,Residencial das Águas,76330-680,39
+40,40,1,Avenida das Palmeiras,849,,Centro,76953-868,33
+41,41,14,Avenida Universitária,965,,Parque das Flores,79289-339,90
+42,42,3,Rua dos Pioneiros,356,,Jardim América,78792-488,102
+43,43,1,Rua dos Ipês,1164,,Residencial das Águas,76133-898,19
+44,44,1,Rua Horizonte,1368,Apto 677,Jundiaí,76520-394,9
+45,45,1,Rua das Nascentes,495,Apto 547,Boa Vista,76347-023,30
+46,46,1,Alameda do Sol,1094,,Boa Vista,76684-023,32
+47,47,1,Avenida Central,1605,,Jundiaí,76240-534,35
+48,48,3,Avenida das Palmeiras,39,,Parque das Flores,78023-953,100
+49,49,2,Rua das Araras,1746,,Setor Norte,77878-150,75
+50,50,1,Rua das Araras,613,Apto 1042,Parque das Flores,76512-237,14
+51,51,1,Avenida Central,644,,Jundiaí,76710-839,34
+52,52,2,Rua dos Ipês,297,,Parque das Flores,77861-570,104
+53,53,2,Alameda do Sol,269,,Residencial das Águas,77331-000,93
+54,54,9,Rua do Cerrado,1658,,Jundiaí,79235-246,123
+55,55,3,Rua dos Ipês,986,,Vila Esperança,78165-391,111
+56,56,1,Rua Horizonte,1154,,Jundiaí,76913-575,41
+57,57,3,Alameda das Acácias,1391,,Residencial das Águas,78185-484,105
+58,58,1,Alameda do Sol,1433,,Jundiaí,76242-819,16
+59,59,14,Rua das Quaresmeiras,283,Apto 835,Parque das Flores,79332-456,70
+60,60,7,Avenida Central,773,,Boa Vista,77353-382,62
+61,61,1,Rua do Cerrado,1205,,Vila Esperança,76923-054,19
+62,62,15,Rua Horizonte,158,,Residencial das Águas,75659-462,93
+63,63,1,Alameda do Sol,788,,Centro,76387-609,9
+64,64,8,Rua das Quaresmeiras,1792,Apto 282,Setor Norte,78734-016,100
+65,65,1,Rua dos Pioneiros,1083,Apto 643,Setor Norte,76568-861,27
+66,66,1,Rua do Cerrado,1655,,Boa Vista,76317-566,11
+67,67,1,Rua Horizonte,855,,Jundiaí,76686-333,42
+68,68,3,Rua dos Pioneiros,972,,Residencial das Águas,78894-127,87
+69,69,1,Avenida Central,588,,Jundiaí,76267-808,30
+70,70,1,Rua dos Ipês,771,,Vila Esperança,76935-461,38
+71,71,1,Avenida Universitária,1302,,Residencial das Águas,76605-051,16
+72,72,1,Rua Horizonte,775,,Jardim América,76186-980,32
+73,73,1,Alameda das Acácias,185,Apto 429,Jundiaí,76859-527,32
+74,74,9,Rua das Nascentes,99,,Vila Esperança,79480-232,144
+75,75,3,Avenida Central,735,Apto 371,Setor Norte,78687-934,107
+76,76,5,Avenida Central,498,,Residencial das Águas,75480-466,65
+77,77,4,Rua dos Pioneiros,242,,Residencial das Águas,79807-333,77
+78,78,8,Avenida Central,1584,,Setor Sul,78890-062,113
+79,79,1,Rua Horizonte,1733,,Setor Norte,76337-908,13
+80,80,1,Avenida Universitária,1628,,Setor Norte,76821-418,18
+81,81,1,Rua das Nascentes,1317,,Residencial das Águas,76198-602,31
+82,82,1,Avenida Central,876,,Residencial das Águas,76762-074,42
+83,83,1,Rua das Quaresmeiras,1614,,Jardim América,76900-690,18
+84,84,1,Rua dos Pioneiros,238,,Jardim América,76650-326,41
+85,85,10,Rua das Quaresmeiras,641,,Setor Sul,75616-862,103
+86,86,7,Rua dos Pioneiros,1133,Apto 1109,Centro,77494-434,70
+87,87,1,Rua dos Pioneiros,1743,,Parque das Flores,76304-563,17
+88,88,1,Rua das Quaresmeiras,1678,,Residencial das Águas,76294-010,18
+89,89,1,Rua das Quaresmeiras,696,,Parque das Flores,76130-197,10
+90,90,1,Rua das Araras,74,Apto 661,Setor Norte,76412-390,16
+91,91,11,Alameda das Acácias,1727,Apto 751,Vila Esperança,76576-173,204
+92,92,7,Avenida das Palmeiras,61,,Jundiaí,77953-003,73
+93,93,1,Rua das Araras,252,,Parque das Flores,76779-338,40
+94,94,1,Avenida das Palmeiras,320,,Setor Norte,76182-393,12
+95,95,1,Rua das Araras,1373,,Parque das Flores,76536-049,22
+96,96,10,Rua das Araras,1277,,Residencial das Águas,75696-647,100
+97,97,1,Rua dos Pioneiros,555,,Vila Esperança,76872-896,37
+98,98,2,Avenida Central,24,Apto 137,Boa Vista,77840-252,113
+99,99,3,Rua das Araras,759,,Boa Vista,78349-745,113
+100,100,1,Rua das Araras,1236,,Vila Esperança,76702-469,39
+101,101,9,Rua das Nascentes,1363,,Jardim América,79688-748,122
+102,102,1,Avenida Central,752,,Vila Esperança,76914-862,8
+103,103,1,Alameda do Sol,620,Apto 457,Vila Nova,76803-601,13
+104,104,1,Rua das Nascentes,1115,,Jundiaí,76967-931,15
+105,105,8,Alameda das Acácias,1324,,Setor Norte,78104-843,99
+106,106,9,Avenida das Palmeiras,356,Apto 707,Boa Vista,79812-602,145
+107,107,2,Alameda do Sol,1699,,Vila Nova,77067-304,97
+108,108,8,Rua das Nascentes,1208,,Vila Esperança,78265-636,100
+109,109,13,Rua Horizonte,405,Apto 185,Setor Sul,78721-826,175
+110,110,4,Alameda do Sol,1096,,Jundiaí,79574-458,57
+111,111,1,Rua do Cerrado,1260,,Jundiaí,76282-097,24
+112,112,1,Rua das Quaresmeiras,440,,Boa Vista,76065-516,22
+113,113,1,Alameda das Acácias,1609,,Parque das Flores,76913-017,12
+114,114,1,Rua Horizonte,1177,,Jardim América,76051-154,40
+115,115,1,Rua das Araras,545,Apto 39,Vila Esperança,76910-959,32
+116,116,8,Rua do Cerrado,1410,,Setor Norte,78314-369,130
+117,117,5,Avenida Central,919,,Vila Nova,75928-558,54
+118,118,1,Avenida Universitária,65,,Setor Sul,76720-688,12
+119,119,6,Rua dos Pioneiros,1810,,Setor Norte,76219-343,105
+120,120,7,Rua do Cerrado,1493,Apto 968,Vila Esperança,77253-419,62

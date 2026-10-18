@@ -9,7 +9,6 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
-from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 RAIZ = Path(__file__).resolve().parent.parent  # pasta do projeto, onde ficam os .html
@@ -67,13 +66,6 @@ def consultar(sql, *args):
         con.close()
 
 
-def inserir(con, tabela, dados, colunas):
-    """INSERT só com as colunas permitidas que vieram no JSON (tabela/colunas são fixas no código)."""
-    usadas = [c for c in colunas if c in dados]
-    sql = f"INSERT INTO {tabela} ({', '.join(usadas)}) VALUES ({', '.join('?' * len(usadas))})"
-    return con.execute(sql, [dados[c] for c in usadas]).lastrowid
-
-
 # ---------- páginas ----------
 
 @app.get("/")
@@ -86,62 +78,51 @@ def interface():
     return send_file(RAIZ / "interface.html")
 
 
-# ---------- estrutura acadêmica: cursos, matérias, turmas ----------
-# Mesmo formato para os três: GET lista, POST cria e devolve o registro com o id.
+# ---------- estrutura acadêmica (só leitura: vem do dataset, RN11) ----------
 
-ESTRUTURA = {
-    "cursos": ("curso", "id_curso", ["nome_curso"], []),
-    "materias": ("materia", "id_materia", ["id_curso", "nome_materia"], []),
-    "turmas": ("turma", "id_turma", ["id_materia", "semestre"], ["matricula_professor"]),
+LISTAS = {
+    "cursos": "SELECT * FROM cursos ORDER BY curso_id",
+    "disciplinas": "SELECT * FROM disciplinas ORDER BY disciplina_id",
+    "docentes": "SELECT * FROM docentes ORDER BY docente_id",
+    "turmas": "SELECT * FROM turmas ORDER BY turma_id",
 }
 
 
 @app.get("/api/<recurso>")
 def listar(recurso):
-    if recurso not in ESTRUTURA:
+    if recurso not in LISTAS:
         abort(404, "recurso não encontrado")
-    tabela, chave, _, _ = ESTRUTURA[recurso]
-    return jsonify(consultar(f"SELECT * FROM {tabela} ORDER BY {chave}"))
-
-
-@app.post("/api/<recurso>")
-def criar(recurso):
-    if recurso not in ESTRUTURA:
-        abort(404, "recurso não encontrado")
-    tabela, chave, obrigatorios, opcionais = ESTRUTURA[recurso]
-    dados = ler_json(*obrigatorios)
-    with transacao() as con:
-        novo_id = inserir(con, tabela, dados, obrigatorios + opcionais)
-    return jsonify(consultar(f"SELECT * FROM {tabela} WHERE {chave} = ?", novo_id)[0]), 201
+    return jsonify(consultar(LISTAS[recurso]))
 
 
 # ---------- alunos ----------
 
 # Indicadores por aluno (fórmulas no readme). Campo fica null quando ainda não há dado.
+# A matrícula do aluno é o codigo_academico do dataset (RN01).
 RESUMO_ALUNO = """
-SELECT a.matricula, u.nome, c.nome_curso AS curso, a.periodo, a.situacao,
-       a.distancia_km AS distancia,
-       (SELECT group_concat(m.nome_materia, ', ') FROM desempenho_aluno d
-          JOIN turma t USING (id_turma) JOIN materia m USING (id_materia)
-         WHERE d.matricula = a.matricula) AS turma,
-       (SELECT round(100.0 * (1 - 1.0 * sum(faltas_totais) / sum(total_aulas)), 1)
-          FROM desempenho_aluno d WHERE d.matricula = a.matricula) AS freq,
-       (SELECT round(avg(coalesce(media_final,
-                 (coalesce(nota_cic1, 0) + coalesce(nota_cic2, 0) + coalesce(nota_cic3, 0))
-                 / nullif((nota_cic1 IS NOT NULL) + (nota_cic2 IS NOT NULL) + (nota_cic3 IS NOT NULL), 0))), 1)
-          FROM desempenho_aluno d WHERE d.matricula = a.matricula) AS nota,
-       (SELECT round(min(100, 100.0 * sum(min_sessao) / 600))
-          FROM log_ava l WHERE l.matricula = a.matricula) AS ava,
+SELECT a.codigo_academico AS matricula, a.nome_sintetico AS nome, c.nome AS curso,
+       mc.periodo_atual AS periodo, mc.status AS situacao,
+       ci.distancia_rodoviaria_aprox_km AS distancia,
+       (SELECT group_concat(d.nome, ', ') FROM registros_academicos r
+          JOIN turmas t USING (turma_id) JOIN disciplinas d USING (disciplina_id)
+         WHERE r.matricula_curso_id = mc.matricula_curso_id AND r.situacao = 'EM_CURSO') AS turma,
+       (SELECT round(avg(frequencia_percentual), 1) FROM registros_academicos r
+         WHERE r.matricula_curso_id = mc.matricula_curso_id) AS freq,
+       (SELECT round(avg(coalesce(nota_final, nota_parcial)), 1) FROM registros_academicos r
+         WHERE r.matricula_curso_id = mc.matricula_curso_id) AS nota,
+       (SELECT count(*) FROM registros_academicos r
+         WHERE r.matricula_curso_id = mc.matricula_curso_id AND r.situacao LIKE 'REPROVADO%') AS reprovacoes,
        (SELECT count(*) FROM feedback f
-         WHERE f.matricula = a.matricula AND f.avaliacao_curso <= 2) AS reclamacoes
-  FROM aluno a JOIN usuario u USING (matricula) JOIN curso c USING (id_curso)
+         WHERE f.aluno_id = a.aluno_id AND f.avaliacao_curso <= 2) AS reclamacoes
+  FROM alunos a JOIN matriculas_curso mc USING (aluno_id) JOIN cursos c USING (curso_id)
+  LEFT JOIN enderecos_alunos e USING (aluno_id) LEFT JOIN cidades ci USING (cidade_id)
 """
 
 # ponytail: pesos fixos (os do readme); semana 05 deixa configurável (RF06) e soma a LLM (semana 06)
 REGRAS = [
     ("freq", lambda v: v < 75, 2, "Frequência abaixo de 75%"),
     ("nota", lambda v: v < 60, 2, "Nota média abaixo de 60"),
-    ("ava", lambda v: v < 50, 1, "Pouco acesso ao AVA"),
+    ("reprovacoes", lambda v: v > 0, 1, "Reprovações no histórico"),
     ("reclamacoes", lambda v: v > 0, 1, "Reclamações no feedback"),
     ("distancia", lambda v: v > 30, 1, "Mora a mais de 30 km do campus"),
 ]
@@ -160,7 +141,7 @@ def calcular_risco(aluno):
 
 
 def buscar_aluno(matricula):
-    achados = consultar(RESUMO_ALUNO + " WHERE a.matricula = ?", matricula)
+    achados = consultar(RESUMO_ALUNO + " WHERE a.codigo_academico = ?", matricula)
     if not achados:
         abort(404, "aluno não encontrado")
     return achados[0]
@@ -168,80 +149,55 @@ def buscar_aluno(matricula):
 
 @app.get("/api/alunos")
 def listar_alunos():
-    alunos = consultar(RESUMO_ALUNO + " ORDER BY u.nome")
+    alunos = consultar(RESUMO_ALUNO + " ORDER BY a.nome_sintetico")
     return jsonify([a | {"risco": calcular_risco(a)["risco"]} for a in alunos])
 
 
-@app.get("/api/alunos/<int:matricula>")
+@app.get("/api/alunos/<matricula>")
 def obter_aluno(matricula):
     aluno = buscar_aluno(matricula)
     aluno["risco"] = calcular_risco(aluno)["risco"]
     aluno["disciplinas"] = consultar("""
-        SELECT d.id_turma, m.nome_materia, t.semestre, d.situacao_materia, d.nota_cic1, d.nota_cic2,
-               d.nota_cic3, d.media_final, d.total_aulas, d.faltas_totais
-          FROM desempenho_aluno d JOIN turma t USING (id_turma) JOIN materia m USING (id_materia)
-         WHERE d.matricula = ? ORDER BY t.semestre, m.nome_materia""", matricula)
+        SELECT t.codigo_turma, d.nome AS disciplina, t.ano_letivo || '.' || t.semestre_letivo AS semestre,
+               r.tentativa, r.situacao, r.nota_n1, r.nota_n2, r.nota_projeto, r.nota_parcial, r.nota_final,
+               r.frequencia_percentual, r.faltas_horas
+          FROM registros_academicos r JOIN turmas t USING (turma_id) JOIN disciplinas d USING (disciplina_id)
+          JOIN matriculas_curso mc USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
+         WHERE a.codigo_academico = ? ORDER BY semestre, d.nome""", matricula)
     return jsonify(aluno)
 
 
-@app.post("/api/alunos")
-def criar_aluno():
-    dados = ler_json("matricula", "nome", "senha", "id_curso", "situacao")
-    dados = dados | {"perfil": "aluno", "senha_hash": generate_password_hash(dados["senha"])}
-    with transacao() as con:
-        inserir(con, "usuario", dados, ["matricula", "perfil", "nome", "email", "senha_hash"])
-        inserir(con, "aluno", dados, ["matricula", "id_curso", "periodo", "situacao", "data_ingresso", "distancia_km"])
-    return jsonify(buscar_aluno(dados["matricula"])), 201
-
-
-# Entrada da importação do AVA (semana 04). Notas/faltas não se editam à mão (RN11): na
-# semana 03 esta rota fica restrita ao importador.
-@app.put("/api/alunos/<int:matricula>/desempenho")
-def registrar_desempenho(matricula):
-    buscar_aluno(matricula)  # 404 se não existir
-    dados = ler_json("id_turma") | {"matricula": matricula}
-    colunas = ["situacao_materia", "nota_cic1", "nota_cic2", "nota_cic3", "media_final",
-               "total_aulas", "faltas_totais"]
-    with transacao() as con:  # cria ou substitui a linha aluno+turma
-        con.execute("DELETE FROM desempenho_aluno WHERE matricula = ? AND id_turma = ?",
-                    (matricula, dados["id_turma"]))
-        inserir(con, "desempenho_aluno", dados, ["matricula", "id_turma"] + colunas)
-    return jsonify(buscar_aluno(matricula))
-
-
-@app.post("/api/alunos/<int:matricula>/ava")
-def registrar_ava(matricula):
-    buscar_aluno(matricula)  # 404 se não existir
-    dados = ler_json("data_acesso", "min_sessao") | {"matricula": matricula}
-    with transacao() as con:
-        novo_id = inserir(con, "log_ava", dados, ["matricula", "data_acesso", "min_sessao"])
-    return jsonify(consultar("SELECT * FROM log_ava WHERE id = ?", novo_id)[0]), 201
-
-
-@app.post("/api/alunos/<int:matricula>/feedback")
+@app.post("/api/alunos/<matricula>/feedback")
 def registrar_feedback(matricula):
     buscar_aluno(matricula)  # 404 se não existir
-    dados = ler_json("alvo") | {"matricula": matricula}
+    dados = ler_json("alvo")
     with transacao() as con:
-        novo_id = inserir(con, "feedback", dados, ["matricula", "alvo", "comentarios", "avaliacao_curso"])
-    return jsonify(consultar("SELECT * FROM feedback WHERE id = ?", novo_id)[0]), 201
+        novo_id = con.execute("""
+            INSERT INTO feedback (aluno_id, alvo, comentarios, avaliacao_curso)
+            SELECT aluno_id, ?, ?, ? FROM alunos WHERE codigo_academico = ?""",
+            (dados["alvo"], dados.get("comentarios"), dados.get("avaliacao_curso"), matricula)).lastrowid
+    return jsonify(consultar("SELECT * FROM feedback WHERE feedback_id = ?", novo_id)[0]), 201
 
 
-@app.post("/api/alunos/<int:matricula>/predicao")
+@app.post("/api/alunos/<matricula>/predicao")
 def gerar_predicao(matricula):
     resultado = calcular_risco(buscar_aluno(matricula))
     with transacao() as con:  # cada cálculo vira uma linha nova no histórico
-        con.execute("INSERT INTO predicao_ia (matricula, nivel_risco, score) VALUES (?, ?, ?)",
-                    (matricula, resultado["risco"], resultado["score"]))
+        con.execute("""
+            INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score)
+            SELECT matricula_curso_id, ?, ? FROM matriculas_curso JOIN alunos USING (aluno_id)
+             WHERE codigo_academico = ?""", (resultado["risco"], resultado["score"], matricula))
     return jsonify({"matricula": matricula} | resultado), 201
 
 
-@app.get("/api/alunos/<int:matricula>/predicao")
+@app.get("/api/alunos/<matricula>/predicao")
 def historico_predicao(matricula):
     buscar_aluno(matricula)  # 404 se não existir
     return jsonify(consultar("""
-        SELECT id, criado_em, nivel_risco AS risco, score, comentario_predicao, alterada_por, justificativa
-          FROM predicao_ia WHERE matricula = ? ORDER BY id DESC""", matricula))
+        SELECT p.predicao_id AS id, p.criado_em, p.nivel_risco AS risco, p.score, p.comentario_predicao,
+               p.alterada_por, p.justificativa
+          FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
+         WHERE a.codigo_academico = ? ORDER BY p.predicao_id DESC""", matricula))
 
 
 if __name__ == "__main__":

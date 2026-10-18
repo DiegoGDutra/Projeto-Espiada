@@ -1,0 +1,41 @@
+disciplina_id,periodo_id,codigo,nome,carga_horaria,tipo,indice_dificuldade_sintetico
+1,1,ES0101,Lógica de Programação,80,Teórico-prática,0.23
+2,1,ES0102,Fundamentos de Computação,80,Teórico-prática,0.22
+3,1,ES0103,Matemática Discreta,80,Teórico-prática,0.21
+4,1,ES0104,Comunicação e Expressão,80,Teórico-prática,0.18
+5,1,ES0105,Projeto Integrador I,100,Projeto,0.15
+6,2,ES0201,Programação Orientada a Objetos,80,Teórico-prática,0.38
+7,2,ES0202,Banco de Dados I,80,Teórico-prática,0.31
+8,2,ES0203,Estatística Aplicada,80,Teórico-prática,0.38
+9,2,ES0204,Álgebra Linear,80,Teórico-prática,0.34
+10,2,ES0205,Projeto Integrador II,100,Projeto,0.29
+11,3,ES0301,Estruturas de Dados,80,Teórico-prática,0.66
+12,3,ES0302,Banco de Dados II,80,Teórico-prática,0.54
+13,3,ES0303,Engenharia de Requisitos,80,Teórico-prática,0.6
+14,3,ES0304,Sistemas Operacionais,80,Teórico-prática,0.66
+15,3,ES0305,Projeto Integrador III,100,Projeto,0.54
+16,4,ES0401,Desenvolvimento Web,80,Teórico-prática,0.51
+17,4,ES0402,Arquitetura de Software,80,Teórico-prática,0.49
+18,4,ES0403,Interação Humano-Computador,80,Teórico-prática,0.4
+19,4,ES0404,Redes de Computadores,80,Teórico-prática,0.47
+20,4,ES0405,Projeto Integrador IV,100,Projeto,0.52
+21,5,ES0501,Qualidade e Testes de Software,80,Teórico-prática,0.6
+22,5,ES0502,DevOps e Integração Contínua,80,Teórico-prática,0.62
+23,5,ES0503,Segurança da Informação,80,Teórico-prática,0.73
+24,5,ES0504,Pesquisa Operacional,80,Teórico-prática,0.69
+25,5,ES0505,Projeto Integrador V,100,Projeto,0.6
+26,6,ES0601,Engenharia de Dados,80,Teórico-prática,0.75
+27,6,ES0602,Computação em Nuvem,80,Teórico-prática,0.84
+28,6,ES0603,Inteligência Artificial Aplicada,80,Teórico-prática,0.78
+29,6,ES0604,Gestão de Projetos,80,Teórico-prática,0.71
+30,6,ES0605,Projeto Integrador VI,100,Projeto,0.68
+31,7,ES0701,Sistemas Distribuídos,80,Teórico-prática,0.65
+32,7,ES0702,Aprendizado de Máquina,80,Teórico-prática,0.9
+33,7,ES0703,Governança de Dados,80,Teórico-prática,0.86
+34,7,ES0704,Experiência do Usuário,80,Teórico-prática,0.91
+35,7,ES0705,Trabalho de Conclusão I,100,Projeto,0.81
+36,8,ES0801,MLOps,80,Teórico-prática,0.61
+37,8,ES0802,Auditoria e Conformidade,80,Teórico-prática,0.7
+38,8,ES0803,Empreendedorismo e Inovação,80,Teórico-prática,0.7
+39,8,ES0804,Tópicos Avançados em Software,80,Teórico-prática,0.87
+40,8,ES0805,Trabalho de Conclusão II,100,Projeto,0.85

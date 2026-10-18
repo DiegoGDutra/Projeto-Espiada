@@ -1,0 +1,145 @@
+tabela,arquivo,campo,tipo_sugerido,chave_ou_referencia,aceita_nulo,descricao,exemplo
+cursos,cursos.csv,curso_id,INTEGER,PK,NAO,Identificador do curso,1
+cursos,cursos.csv,nome,TEXT,,NAO,Nome do curso,Engenharia de Software
+cursos,cursos.csv,grau,TEXT,,NAO,Grau acadêmico,Bacharelado
+cursos,cursos.csv,total_periodos,INTEGER,,NAO,Quantidade de períodos,8
+cursos,cursos.csv,disciplinas_por_periodo,INTEGER,,NAO,Quantidade padrão de disciplinas por período,40
+cursos,cursos.csv,modalidade,TEXT,,NAO,Modalidade do curso,Presencial
+cursos,cursos.csv,cidade_sede,TEXT,,NAO,Cidade sede,Anápolis
+cursos,cursos.csv,uf_sede,TEXT,,NAO,UF da sede,GO
+periodos_curriculares,periodos_curriculares.csv,periodo_id,INTEGER,PK,NAO,Identificador do período,1
+periodos_curriculares,periodos_curriculares.csv,curso_id,INTEGER,FK:cursos.curso_id,NAO,Curso,1
+periodos_curriculares,periodos_curriculares.csv,numero_periodo,INTEGER,,NAO,Número sequencial do período,1
+periodos_curriculares,periodos_curriculares.csv,quantidade_disciplinas,INTEGER,,NAO,Disciplinas previstas,5
+periodos_curriculares,periodos_curriculares.csv,carga_horaria_prevista,INTEGER,,NAO,Carga horária total prevista,400
+disciplinas,disciplinas.csv,disciplina_id,INTEGER,PK,NAO,Identificador da disciplina,1
+disciplinas,disciplinas.csv,periodo_id,INTEGER,FK:periodos_curriculares.periodo_id,NAO,Período curricular recomendado,1
+disciplinas,disciplinas.csv,codigo,TEXT,,NAO,Código curricular,ES0101
+disciplinas,disciplinas.csv,nome,TEXT,,NAO,Nome da disciplina,Lógica de Programação
+disciplinas,disciplinas.csv,carga_horaria,INTEGER,,NAO,Carga horária,80
+disciplinas,disciplinas.csv,tipo,TEXT,,NAO,Natureza da disciplina,Teórico-prática
+disciplinas,disciplinas.csv,indice_dificuldade_sintetico,REAL,,NAO,Parâmetro sintético de dificuldade; não usar como alvo,0.23
+cidades,cidades.csv,cidade_id,INTEGER,PK,NAO,Identificador da cidade,1
+cidades,cidades.csv,nome,TEXT,,NAO,Cidade,Anápolis
+cidades,cidades.csv,uf,TEXT,,NAO,UF,GO
+cidades,cidades.csv,distancia_rodoviaria_aprox_km,REAL,,NAO,Distância aproximada até Anápolis usada na simulação,0
+docentes,docentes.csv,docente_id,INTEGER,PK,NAO,Identificador do docente sintético,1
+docentes,docentes.csv,nome_sintetico,TEXT,,NAO,Rótulo fictício,Docente Ada
+docentes,docentes.csv,titulacao,TEXT,,NAO,Titulação,Mestre
+docentes,docentes.csv,regime_trabalho,TEXT,,NAO,Regime de trabalho,Tempo integral
+alunos,alunos.csv,aluno_id,INTEGER,PK,NAO,Identificador do aluno,1
+alunos,alunos.csv,codigo_academico,TEXT,,NAO,Código acadêmico fictício,AES0001
+alunos,alunos.csv,nome_sintetico,TEXT,,NAO,Rótulo sintético; não identifica pessoa real,Estudante Sintético 001
+alunos,alunos.csv,data_nascimento,DATE,,NAO,Data de nascimento sintética,1995-01-22
+alunos,alunos.csv,genero_autodeclarado,TEXT,,NAO,Categoria sintética,NÃO_INFORMADO
+alunos,alunos.csv,origem_dado,TEXT,,NAO,Marca o caráter sintético,SINTETICO
+enderecos_alunos,enderecos_alunos.csv,endereco_id,INTEGER,PK,NAO,Identificador do endereço,1
+enderecos_alunos,enderecos_alunos.csv,aluno_id,INTEGER,FK:alunos.aluno_id,NAO,Aluno,1
+enderecos_alunos,enderecos_alunos.csv,cidade_id,INTEGER,FK:cidades.cidade_id,NAO,Cidade,2
+enderecos_alunos,enderecos_alunos.csv,logradouro_sintetico,TEXT,,NAO,Logradouro fictício,Rua das Araras
+enderecos_alunos,enderecos_alunos.csv,numero_sintetico,INTEGER,,NAO,Número fictício,774
+enderecos_alunos,enderecos_alunos.csv,complemento_sintetico,TEXT,,SIM,Complemento fictício,Apto 910
+enderecos_alunos,enderecos_alunos.csv,bairro_sintetico,TEXT,,NAO,Bairro fictício,Setor Norte
+enderecos_alunos,enderecos_alunos.csv,cep_sintetico,TEXT,,NAO,CEP não destinado a correspondência,77191-332
+enderecos_alunos,enderecos_alunos.csv,tempo_deslocamento_min,INTEGER,,NAO,Tempo estimado até a universidade,78
+perfis_socioeconomicos,perfis_socioeconomicos.csv,perfil_id,INTEGER,PK,NAO,Identificador do perfil,1
+perfis_socioeconomicos,perfis_socioeconomicos.csv,aluno_id,INTEGER,FK:alunos.aluno_id,NAO,Aluno,1
+perfis_socioeconomicos,perfis_socioeconomicos.csv,data_referencia,DATE,,NAO,Data do retrato socioeconômico,2026-08-01
+perfis_socioeconomicos,perfis_socioeconomicos.csv,renda_pessoal_mensal,REAL,,NAO,Renda pessoal mensal em reais,2805.41
+perfis_socioeconomicos,perfis_socioeconomicos.csv,renda_familiar_mensal,REAL,,NAO,Renda familiar mensal em reais,6460.65
+perfis_socioeconomicos,perfis_socioeconomicos.csv,pessoas_domicilio,INTEGER,,NAO,Moradores do domicílio,2
+perfis_socioeconomicos,perfis_socioeconomicos.csv,trabalha,BOOLEAN,,NAO,"1 para sim, 0 para não",1
+perfis_socioeconomicos,perfis_socioeconomicos.csv,horas_trabalho_semana,INTEGER,,NAO,Carga semanal de trabalho,40
+perfis_socioeconomicos,perfis_socioeconomicos.csv,dependentes,INTEGER,,NAO,Quantidade de dependentes,0
+perfis_socioeconomicos,perfis_socioeconomicos.csv,primeira_geracao_superior,BOOLEAN,,NAO,Primeiro da família no ensino superior,0
+perfis_socioeconomicos,perfis_socioeconomicos.csv,qualidade_internet,TEXT,,NAO,Domínio: INSTAVEL|REGULAR|BOA,BOA
+perfis_socioeconomicos,perfis_socioeconomicos.csv,escola_publica_origem,BOOLEAN,,NAO,Origem predominante em escola pública,0
+tipos_bolsa,tipos_bolsa.csv,tipo_bolsa_id,INTEGER,PK,NAO,Identificador do tipo,1
+tipos_bolsa,tipos_bolsa.csv,nome,TEXT,,NAO,Nome da bolsa ou financiamento,Bolsa social integral
+tipos_bolsa,tipos_bolsa.csv,categoria,TEXT,,NAO,Categoria,SOCIAL
+tipos_bolsa,tipos_bolsa.csv,percentual,REAL,,NAO,Percentual do benefício,100
+bolsas_alunos,bolsas_alunos.csv,bolsa_aluno_id,INTEGER,PK,NAO,Identificador da concessão,1
+bolsas_alunos,bolsas_alunos.csv,aluno_id,INTEGER,FK:alunos.aluno_id,NAO,Aluno,3
+bolsas_alunos,bolsas_alunos.csv,tipo_bolsa_id,INTEGER,FK:tipos_bolsa.tipo_bolsa_id,NAO,Tipo de bolsa,2
+bolsas_alunos,bolsas_alunos.csv,data_inicio,DATE,,NAO,Início,2026-08-01
+bolsas_alunos,bolsas_alunos.csv,data_fim,DATE,,SIM,Fim; vazio quando vigente,
+bolsas_alunos,bolsas_alunos.csv,status,TEXT,,NAO,Situação da concessão,ATIVA
+matriculas_curso,matriculas_curso.csv,matricula_curso_id,INTEGER,PK,NAO,Identificador da matrícula,1
+matriculas_curso,matriculas_curso.csv,aluno_id,INTEGER,FK:alunos.aluno_id,NAO,Aluno,1
+matriculas_curso,matriculas_curso.csv,curso_id,INTEGER,FK:cursos.curso_id,NAO,Curso,1
+matriculas_curso,matriculas_curso.csv,data_ingresso,DATE,,NAO,Data sintética de ingresso,2026-08-01
+matriculas_curso,matriculas_curso.csv,ano_ingresso,INTEGER,,NAO,Ano de ingresso,2026
+matriculas_curso,matriculas_curso.csv,semestre_ingresso,INTEGER,,NAO,Semestre de ingresso,2
+matriculas_curso,matriculas_curso.csv,periodo_atual,INTEGER,,NAO,Período atual na data de referência,1
+matriculas_curso,matriculas_curso.csv,turno,TEXT,,NAO,Turno principal,Noturno
+matriculas_curso,matriculas_curso.csv,status,TEXT,,NAO,Status na data de referência,ATIVO
+matriculas_curso,matriculas_curso.csv,forma_ingresso,TEXT,,NAO,Forma de ingresso,ENEM
+matriculas_curso,matriculas_curso.csv,data_referencia,DATE,,NAO,Data do retrato,2026-08-01
+turmas,turmas.csv,turma_id,INTEGER,PK,NAO,Identificador da turma,1
+turmas,turmas.csv,disciplina_id,INTEGER,FK:disciplinas.disciplina_id,NAO,Disciplina,1
+turmas,turmas.csv,docente_id,INTEGER,FK:docentes.docente_id,NAO,Docente,2
+turmas,turmas.csv,ano_letivo,INTEGER,,NAO,Ano,2023
+turmas,turmas.csv,semestre_letivo,INTEGER,,NAO,Semestre,1
+turmas,turmas.csv,codigo_turma,TEXT,,NAO,Código único da oferta,ES0101-2023.1-A
+turmas,turmas.csv,turno,TEXT,,NAO,Turno,Noturno
+turmas,turmas.csv,modalidade,TEXT,,NAO,Modalidade,Presencial
+turmas,turmas.csv,vagas,INTEGER,,NAO,Vagas ofertadas,45
+turmas,turmas.csv,carga_horaria,INTEGER,,NAO,Carga horária da oferta,80
+registros_academicos,registros_academicos.csv,registro_id,INTEGER,PK,NAO,Identificador do registro,1
+registros_academicos,registros_academicos.csv,matricula_curso_id,INTEGER,FK:matriculas_curso.matricula_curso_id,NAO,Matrícula do aluno,1
+registros_academicos,registros_academicos.csv,turma_id,INTEGER,FK:turmas.turma_id,NAO,Turma,281
+registros_academicos,registros_academicos.csv,tentativa,INTEGER,,NAO,Número da tentativa na disciplina,1
+registros_academicos,registros_academicos.csv,situacao,TEXT,,NAO,"APROVADO, REPROVADO_NOTA, REPROVADO_FREQUENCIA ou EM_CURSO",EM_CURSO
+registros_academicos,registros_academicos.csv,nota_n1,REAL,,NAO,Nota 0 a 100,98.9
+registros_academicos,registros_academicos.csv,nota_n2,REAL,,SIM,Nota 0 a 100; pode faltar no período em curso,87.1
+registros_academicos,registros_academicos.csv,nota_projeto,REAL,,SIM,Nota 0 a 100; pode faltar no período em curso,94.2
+registros_academicos,registros_academicos.csv,nota_parcial,REAL,,SIM,Média parcial disponível,94.9
+registros_academicos,registros_academicos.csv,nota_final,REAL,,SIM,Média final; vazia em disciplinas em curso,62.9
+registros_academicos,registros_academicos.csv,frequencia_percentual,REAL,,SIM,Frequência de 0 a 100; raros nulos intencionais,100
+registros_academicos,registros_academicos.csv,faltas_horas,INTEGER,,NAO,Faltas convertidas em horas,0
+registros_academicos,registros_academicos.csv,carga_horaria_cursada,INTEGER,,NAO,Carga horária da disciplina,80
+registros_academicos,registros_academicos.csv,data_atualizacao,DATE,,NAO,Data de atualização,2026-12-15
+indicadores_risco,indicadores_risco.csv,indicador_id,INTEGER,PK,NAO,Um indicador por aluno nesta versão,1
+indicadores_risco,indicadores_risco.csv,matricula_curso_id,INTEGER,FK:matriculas_curso.matricula_curso_id,NAO,Matrícula,1
+indicadores_risco,indicadores_risco.csv,data_referencia,DATE,,NAO,Data do cálculo,2026-08-01
+indicadores_risco,indicadores_risco.csv,media_historica,REAL,,NAO,Média de notas finalizadas,88.9
+indicadores_risco,indicadores_risco.csv,media_periodo_atual,REAL,,NAO,Média parcial atual,88.9
+indicadores_risco,indicadores_risco.csv,frequencia_media,REAL,,NAO,Frequência média,92.77
+indicadores_risco,indicadores_risco.csv,reprovacoes,INTEGER,,NAO,Reprovações em primeira tentativa,0
+indicadores_risco,indicadores_risco.csv,tendencia_nota_por_periodo,REAL,,NAO,Inclinação linear da média por período,0
+indicadores_risco,indicadores_risco.csv,score_risco_percentual,REAL,,NAO,Heurística explicável de 0 a 100,1.5
+indicadores_risco,indicadores_risco.csv,classificacao_risco,TEXT,,NAO,"BAIXO, MODERADO, ALTO ou CRITICO",BAIXO
+indicadores_risco,indicadores_risco.csv,motivos_risco,TEXT,,NAO,Evidências separadas por barra vertical,alta_carga_de_trabalho
+desfechos_alunos,desfechos_alunos.csv,desfecho_id,INTEGER,PK,NAO,Identificador do desfecho,1
+desfechos_alunos,desfechos_alunos.csv,matricula_curso_id,INTEGER,FK:matriculas_curso.matricula_curso_id,NAO,Matrícula,1
+desfechos_alunos,desfechos_alunos.csv,inicio_janela,DATE,,NAO,Início da janela preditiva,2026-08-01
+desfechos_alunos,desfechos_alunos.csv,fim_janela,DATE,,NAO,Fim da janela preditiva,2027-07-31
+desfechos_alunos,desfechos_alunos.csv,evasao_observada,BOOLEAN,,NAO,"Variável-alvo sintética: 1 evasão, 0 permanência",0
+desfechos_alunos,desfechos_alunos.csv,tipo_desfecho,TEXT,,NAO,EVASAO ou PERMANENCIA,PERMANENCIA
+desfechos_alunos,desfechos_alunos.csv,data_evento_ou_censura,DATE,,NAO,Data do evento ou fim de observação,2027-07-31
+visao_analitica,simpa_visao_analitica.csv,aluno_id,INTEGER,,NAO,Aluno,1
+visao_analitica,simpa_visao_analitica.csv,codigo_academico,TEXT,,NAO,Código fictício,AES0001
+visao_analitica,simpa_visao_analitica.csv,nome_sintetico,TEXT,,NAO,Rótulo sintético,Estudante Sintético 001
+visao_analitica,simpa_visao_analitica.csv,periodo_atual,INTEGER,,NAO,Período,1
+visao_analitica,simpa_visao_analitica.csv,turno,TEXT,,NAO,Turno,Noturno
+visao_analitica,simpa_visao_analitica.csv,cidade,TEXT,,NAO,Cidade,Goiânia
+visao_analitica,simpa_visao_analitica.csv,uf,TEXT,,NAO,UF,GO
+visao_analitica,simpa_visao_analitica.csv,tempo_deslocamento_min,INTEGER,,NAO,Deslocamento,78
+visao_analitica,simpa_visao_analitica.csv,renda_pessoal_mensal,REAL,,NAO,Renda pessoal,2805.41
+visao_analitica,simpa_visao_analitica.csv,renda_familiar_mensal,REAL,,NAO,Renda familiar,6460.65
+visao_analitica,simpa_visao_analitica.csv,renda_per_capita,REAL,,NAO,Renda per capita,3230.32
+visao_analitica,simpa_visao_analitica.csv,trabalha,BOOLEAN,,NAO,Trabalha,1
+visao_analitica,simpa_visao_analitica.csv,horas_trabalho_semana,INTEGER,,NAO,Horas de trabalho,40
+visao_analitica,simpa_visao_analitica.csv,dependentes,INTEGER,,NAO,Dependentes,0
+visao_analitica,simpa_visao_analitica.csv,qualidade_internet,TEXT,,NAO,Internet,BOA
+visao_analitica,simpa_visao_analitica.csv,escola_publica_origem,BOOLEAN,,NAO,Escola pública,0
+visao_analitica,simpa_visao_analitica.csv,bolsista,BOOLEAN,,NAO,Possui bolsa,0
+visao_analitica,simpa_visao_analitica.csv,tipo_bolsa,TEXT,,NAO,Tipo da bolsa,SEM_BOLSA
+visao_analitica,simpa_visao_analitica.csv,media_historica,REAL,,NAO,Média histórica,88.9
+visao_analitica,simpa_visao_analitica.csv,media_periodo_atual,REAL,,NAO,Média atual,88.9
+visao_analitica,simpa_visao_analitica.csv,frequencia_media,REAL,,NAO,Frequência média,92.77
+visao_analitica,simpa_visao_analitica.csv,reprovacoes,INTEGER,,NAO,Reprovações,0
+visao_analitica,simpa_visao_analitica.csv,tendencia_nota_por_periodo,REAL,,NAO,Tendência,0
+visao_analitica,simpa_visao_analitica.csv,score_risco_percentual,REAL,,NAO,Score explicável,1.5
+visao_analitica,simpa_visao_analitica.csv,classificacao_risco,TEXT,,NAO,Classe de risco,BAIXO
+visao_analitica,simpa_visao_analitica.csv,evasao_observada,BOOLEAN,,NAO,Alvo sintético,0

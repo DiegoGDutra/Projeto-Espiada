@@ -1,0 +1,5 @@
+tipo_bolsa_id,nome,categoria,percentual
+1,Bolsa social integral,SOCIAL,100
+2,Bolsa social parcial,SOCIAL,50
+3,Bolsa mérito,MERITO,50
+4,Financiamento institucional,FINANCIAMENTO,50

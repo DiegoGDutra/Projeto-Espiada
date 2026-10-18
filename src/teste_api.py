@@ -1,11 +1,13 @@
-"""Confere as rotas e o formato JSON da API num banco temporário.  Rodar:  python src/test_api.py"""
+"""Importa o dataset num banco temporário e confere as rotas e o formato JSON.  Rodar:  python src/teste_api.py"""
 import tempfile
 from pathlib import Path
 
 import Espiada
+from importar import importar
 
 Espiada.BANCO = Path(tempfile.mkdtemp()) / "teste.db"  # não mexe no funcionaai.db
-Espiada.criar_banco()
+qtd = importar(Espiada.BANCO)
+assert (qtd["alunos"], qtd["registros_academicos"], qtd["turmas"]) == (120, 2949, 320), qtd
 api = Espiada.app.test_client()
 
 
@@ -15,37 +17,32 @@ def chama(metodo, url, json=None, status=200):
     return r.get_json()
 
 
-assert chama("POST", "/api/cursos", {"nome_curso": "Engenharia de Software"}, 201) == {"id_curso": 1, "nome_curso": "Engenharia de Software"}
-chama("POST", "/api/materias", {"id_curso": 1, "nome_materia": "Cálculo"}, 201)
-chama("POST", "/api/turmas", {"id_materia": 1, "semestre": "2026.2"}, 201)
-assert len(chama("GET", "/api/cursos")) == 1
+assert chama("GET", "/api/cursos")[0]["nome"] == "Engenharia de Software"
+assert len(chama("GET", "/api/disciplinas")) == 40 and len(chama("GET", "/api/docentes")) == 18
 
-aluno = {"matricula": 2024001, "nome": "Ana", "senha": "Segredo#1", "id_curso": 1, "situacao": 1, "distancia_km": 40}
-novo = chama("POST", "/api/alunos", aluno, 201)
-assert novo["curso"] == "Engenharia de Software" and novo["freq"] is None, "sem dados ainda, indicador é null"
-assert "senha" not in novo and "senha_hash" not in novo, "senha nunca sai na resposta"
+alunos = chama("GET", "/api/alunos")
+assert len(alunos) == 120 and {a["risco"] for a in alunos} <= {"baixo", "medio", "alto"}
+a = chama("GET", "/api/alunos/AES0001")
+assert a["matricula"] == "AES0001" and a["curso"] == "Engenharia de Software" and a["reclamacoes"] == 0, a
+assert a["disciplinas"] and all(0 <= d["nota_n1"] <= 100 for d in a["disciplinas"])
 
-chama("PUT", "/api/alunos/2024001/desempenho", {"id_turma": 1, "media_final": 50, "total_aulas": 80, "faltas_totais": 40})
-chama("PUT", "/api/alunos/2024001/desempenho", {"id_turma": 1, "media_final": 50, "total_aulas": 80, "faltas_totais": 40})  # PUT repetido não duplica
-chama("POST", "/api/alunos/2024001/ava", {"data_acesso": "2026-10-01", "min_sessao": 60}, 201)
-chama("POST", "/api/alunos/2024001/feedback", {"alvo": "curso", "avaliacao_curso": 1, "comentarios": "ruim"}, 201)
+chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso", "avaliacao_curso": 1, "comentarios": "ruim"}, 201)
+assert chama("GET", "/api/alunos/AES0001")["reclamacoes"] == 1
 
-a = chama("GET", "/api/alunos/2024001")
-assert (a["freq"], a["nota"], a["ava"], a["reclamacoes"]) == (50.0, 50.0, 10.0, 1), a
-assert len(a["disciplinas"]) == 1 and a["risco"] == "alto"
+p = chama("POST", "/api/alunos/AES0001/predicao", status=201)
+assert p == {"matricula": "AES0001"} | Espiada.calcular_risco(chama("GET", "/api/alunos/AES0001")), p
+assert chama("GET", "/api/alunos/AES0001/predicao")[0]["risco"] == p["risco"]
 
-p = chama("POST", "/api/alunos/2024001/predicao", status=201)
-assert p["risco"] == "alto" and p["score"] == 7 and all(f["negativo"] for f in p["fatores"])
-assert chama("GET", "/api/alunos/2024001/predicao")[0]["risco"] == "alto"
-assert chama("GET", "/api/alunos")[0]["risco"] == "alto"
+# regras de risco: tudo ruim = alto com score 7; sem dado não conta
+ruim = {"freq": 50, "nota": 40, "reprovacoes": 2, "reclamacoes": 1, "distancia": 80}
+assert Espiada.calcular_risco(ruim)["score"] == 7 and Espiada.calcular_risco(ruim)["risco"] == "alto"
+assert Espiada.calcular_risco(dict.fromkeys(ruim))["risco"] == "baixo"
 
-# erros sempre em {"erro": ...}
-assert "erro" in chama("POST", "/api/alunos", {"nome": "X"}, 400)
-assert "erro" in chama("POST", "/api/alunos", aluno, 409), "matrícula repetida"
-assert "erro" in chama("GET", "/api/alunos/999", status=404)
-assert "erro" in chama("POST", "/api/alunos/999/ava", {"data_acesso": "x", "min_sessao": 1}, 404)
-chama("PUT", "/api/alunos/2024001/desempenho", {"id_turma": 1, "nota_cic1": 101}, 400)  # RN04
-chama("POST", "/api/alunos/2024001/feedback", {"alvo": "professor"}, 400)  # RN05
-chama("POST", "/api/cursos", ["não é objeto"], 400)
+# erros sempre em {"erro": ...}; nota e frequência não têm rota de escrita (RN11)
+assert "erro" in chama("GET", "/api/alunos/XYZ", status=404)
+assert "erro" in chama("POST", "/api/alunos/XYZ/feedback", {"alvo": "curso"}, 404)
+chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "professor"}, 400)  # RN05
+chama("POST", "/api/alunos/AES0001/feedback", ["não é objeto"], 400)
+chama("PUT", "/api/alunos/AES0001/desempenho", {"nota_n1": 100}, 404)
 chama("GET", "/api/inexistente", status=404)
 print("ok: todas as rotas da API funcionam")
