@@ -1,5 +1,21 @@
+# segredos (o modelo vai no .env.example)
 .env
 
-.claude
+# Python
+.venv/
+__pycache__/
+*.pyc
 
-funcionaai.db
+# banco gerado pelo src/importar.py (cada um recria o seu)
+*.db
+*.db-journal
+
+# export do Trello (cópia local, a fonte é o board)
+*projeto-simpa.json
+
+# editores, Claude Code e sistema
+.claude/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

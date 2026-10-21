@@ -53,6 +53,17 @@ nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
 .avatar{width:32px;height:32px;border-radius:50%;background:var(--navy-900);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
 
+.user{display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;}
+.user .perfil{color:var(--text-soft);font-size:11.5px;}
+.btn-sair{border:1px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer;}
+.btn-sair:hover{background:var(--card-bg);}
+/* Cadastro de usuário (RF11) */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px;}
+.form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--text-soft);}
+.form-grid input,.form-grid select{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:inherit;font-size:13.5px;color:var(--text);}
+.form-grid input:user-invalid{border-color:var(--risk-high);background:var(--risk-high-bg);}
+.form-grid small{font-size:11.5px;}
+.msg{font-size:13px;margin-top:12px;}
 /* Page title row */
 .pagehead{border-bottom:1px solid var(--border);}
 .pagehead-inner{max-width:1180px;margin:0 auto;padding:20px 28px 18px;}
@@ -187,6 +198,10 @@ tbody tr:last-child td{border-bottom:none;}
         Config.
       </button>
     </nav>
+    <div class="user">
+      <div><div id="userNome"></div><div class="perfil" id="userPerfil"></div></div>
+      <button class="btn-sair" id="sairBtn">Sair</button>
+    </div>
   </div>
 </header>
 
@@ -275,11 +290,25 @@ tbody tr:last-child td{border-bottom:none;}
 
   <!-- CONFIG -->
   <section class="section" id="sec-config">
-    <div class="panel placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M4 12h2m12 0h2M12 4v2m0 12v2"/></svg>
-      <h3>Configurações</h3>
-      <p>Controles de acesso por perfil (aluno, professor, coordenação) e regras de alerta ficarão disponíveis aqui.</p>
-    </div>
+    <form class="panel" id="cadastroForm">
+      <h3>Cadastrar usuário</h3>
+      <div class="form-grid">
+        <label>E-mail (login)<input name="login" type="email" required></label>
+        <label>Nome<input name="nome" required></label>
+        <label>Perfil
+          <select name="perfil" id="cadPerfil">
+            <option value="aluno">Aluno</option><option value="professor">Professor</option><option value="secretaria">Secretaria</option>
+          </select>
+        </label>
+        <label id="cadVinculoLbl"><span id="cadVinculoTxt">Matrícula do aluno</span><input name="vinculo" id="cadVinculo" required></label>
+        <label>Senha<input name="senha" type="password" required autocomplete="new-password"
+          pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
+          title="8+ caracteres com maiúscula, minúscula, número e caractere especial">
+          <small>8+ caracteres, com maiúscula, minúscula, número e caractere especial</small></label>
+      </div>
+      <button class="btn">Cadastrar</button>
+      <p class="msg" id="cadMsg"></p>
+    </form>
   </section>
 
 </div>
@@ -290,6 +319,45 @@ tbody tr:last-child td{border-bottom:none;}
 
 <script>
 const alunos = [];
+// o que cada perfil enxerga no menu; a API confere de novo e recusa o resto (403)
+const SECOES = {aluno:["painel","monitoramento"], professor:["painel","monitoramento","predicoes","turmas","relatorios"],
+  secretaria:["painel","monitoramento","predicoes","turmas","relatorios","config"]};
+const PERFIL = {aluno:"Aluno", professor:"Professor", secretaria:"Secretaria/coordenação"};
+
+async function api(url, opcoes={}){
+  if(opcoes.json){ opcoes = {...opcoes, method:opcoes.method||"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(opcoes.json)}; }
+  const r = await fetch(url, opcoes);
+  if(r.status===401){ location.href = "/"; throw new Error("sessão expirada"); }
+  const corpo = await r.json();
+  if(!r.ok) throw new Error(corpo.erro);
+  return corpo;
+}
+document.getElementById("sairBtn").addEventListener("click", async ()=>{
+  await api("/api/logout",{method:"POST"}); location.href = "/";
+});
+api("/api/sessao").then(eu=>{
+  document.getElementById("userNome").textContent = eu.nome;
+  document.getElementById("userPerfil").textContent = PERFIL[eu.perfil];
+  document.querySelectorAll(".nav-item").forEach(b=>{ if(!SECOES[eu.perfil].includes(b.dataset.section)) b.remove(); });
+});
+
+const cadPerfil = document.getElementById("cadPerfil"), cadVinculo = document.getElementById("cadVinculo");
+cadPerfil.addEventListener("change",()=>{
+  const p = cadPerfil.value;
+  document.getElementById("cadVinculoLbl").hidden = p==="secretaria";
+  cadVinculo.required = p!=="secretaria";
+  document.getElementById("cadVinculoTxt").textContent = p==="aluno" ? "Matrícula do aluno" : "ID do docente";
+});
+document.getElementById("cadastroForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const dados = Object.fromEntries(new FormData(e.target)), msg = document.getElementById("cadMsg");
+  if(dados.perfil==="secretaria") delete dados.vinculo;
+  try{
+    const u = await api("/api/usuarios",{json:dados});
+    msg.style.color = "var(--risk-low)"; msg.textContent = `Usuário ${u.login} cadastrado como ${PERFIL[u.perfil]}.`;
+    e.target.reset(); cadPerfil.dispatchEvent(new Event("change"));
+  }catch(err){ msg.style.color = "var(--risk-high)"; msg.textContent = err.message; }
+});
 const riskLabel = {alto:"Alto",medio:"Médio",baixo:"Baixo"};
 const riskColor = {alto:"var(--risk-high)",medio:"var(--risk-med)",baixo:"var(--risk-low)"};
 
@@ -405,7 +473,7 @@ document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id=
 document.getElementById("predictBtn").addEventListener("click",async ()=>{
   if(alunos.length===0){ return; }
   const a = alunos[document.getElementById("predictSelect").value];
-  const {risco, fatores} = await fetch(`/api/alunos/${a.matricula}/predicao`,{method:"POST"}).then(r=>r.json());
+  const {risco, fatores} = await api(`/api/alunos/${a.matricula}/predicao`,{method:"POST"});
   const badge = document.getElementById("gaugeBadge");
   badge.textContent = riskLabel[risco]+" risco";
   badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
@@ -416,7 +484,7 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
   document.getElementById("predictResult").classList.add("show");
 });
 
-fetch("/api/alunos").then(r=>r.json()).then(lista=>{
+api("/api/alunos").then(lista=>{
   alunos.push(...lista);
   renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
 });

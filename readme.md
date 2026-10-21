@@ -47,15 +47,42 @@ Para conferir as rotas: `python src/teste_api.py`
 | `200` | consulta ou atualização ok | o registro ou a lista |
 | `201` | criou algo | o registro criado, com o id |
 | `400` | JSON inválido, faltou campo ou violou uma regra do banco (ex.: nota 101) | `{"erro": "..."}` |
+| `401` | não fez login (ou e-mail/senha errados) | `{"erro": "..."}` |
+| `403` | o perfil não pode fazer isso (tentativa fica no log do servidor) | `{"erro": "sem permissão: ..."}` |
 | `404` | aluno ou recurso não existe | `{"erro": "..."}` |
 | `409` | já existe (ex.: matrícula repetida) | `{"erro": "..."}` |
+| `429` | 5 senhas erradas seguidas no mesmo login: bloqueado por 15 min | `{"erro": "..."}` |
 
 Um indicador sem dado ainda (ex.: aluno sem notas) vem como `null`.
+
+### Login e perfis (RF01, RF11, RN09, RN10, CA01)
+
+O login é por e-mail e senha; a sessão fica num cookie assinado (`HttpOnly`, `SameSite=Strict`). Toda rota `/api/...` exige login, menos `POST /api/login`.
+Senha: 8+ caracteres com maiúscula, minúscula, número e caractere especial (RF01), guardada só em hash (RNF07).
+Em produção defina a variável de ambiente `SECRET_KEY`; sem ela o servidor gera uma nova a cada vez que sobe (e todo mundo precisa logar de novo).
+
+| Perfil | Vê | Pode |
+|---|---|---|
+| aluno | só o próprio resumo, disciplinas e histórico de predição | enviar feedback (só o próprio) |
+| professor | só alunos que passaram por turmas dele (RN09); cursos, disciplinas, docentes, turmas | gerar predição desses alunos; não altera dado nenhum |
+| secretaria | tudo (RN10) | gerar predição de qualquer aluno, cadastrar usuários |
+
+Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`acesso negado: ...`).
+
+**Primeiro usuário:** a secretaria inicial é criada pelo terminal (pede a senha duas vezes); depois ela cadastra os outros na aba **Config.** do painel.
+
+```bash
+flask --app src/Espiada.py criar-usuario secretaria@unievangelica.edu.br secretaria "Secretaria"
+```
 
 **Rotas** (campos obrigatórios em **negrito**)
 
 | Método | Rota | Corpo (entrada) | Resposta |
 |---|---|---|---|
+| POST | `/api/login` | **login** (e-mail), **senha** | `{login, perfil, nome}` e abre a sessão |
+| POST | `/api/logout` | — | `{ok: true}` |
+| GET | `/api/sessao` | — | `{login, perfil, nome}` de quem está logado |
+| POST | `/api/usuarios` | **login**, **perfil**, **nome**, **senha**, vinculo (matrícula do aluno ou `docente_id` do professor) | o usuário criado (só secretaria) |
 | GET | `/api/cursos` | — | lista de cursos |
 | GET | `/api/disciplinas` | — | lista de disciplinas |
 | GET | `/api/docentes` | — | lista de docentes |
@@ -121,7 +148,11 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    python src/Espiada.py
    ```
-6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); ao clicar em **Acessar** vai para o painel (`interface.html`), que consome a API (`/api/...`).
+6. Crie o primeiro usuário (secretaria), se ainda não existir:
+   ```bash
+   flask --app src/Espiada.py criar-usuario seu@email.com secretaria "Seu nome"
+   ```
+7. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); com e-mail e senha certos vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
 
 Para parar o servidor: `Ctrl+C` no terminal.
 
@@ -154,12 +185,12 @@ Cada perfil vê só o que pode (RN09, RN10, CA01).
 
 ```mermaid
 flowchart TD
-    A["Tela de login"] --> B{"Matrícula e senha<br/>conferem com o hash?"}
+    A["Tela de login"] --> B{"E-mail e senha<br/>conferem com o hash?"}
     B -->|não| E["Mensagem de erro"] --> A
     B -->|sim| C{"Perfil do usuário"}
     C -->|aluno| AL["Próprio desempenho<br/>enviar feedback"]
-    C -->|professor| PR["Alunos das turmas que leciona<br/>pode ajustar predição com justificativa"]
-    C -->|secretaria| SE["Visão de todos os cursos<br/>relatórios, pesos do cálculo, configurações"]
+    C -->|professor| PR["Alunos das turmas que leciona<br/>gera predição, não altera dados"]
+    C -->|secretaria| SE["Visão de todos os cursos<br/>predição, cadastro de usuários"]
 ```
 
 ### Predição de risco

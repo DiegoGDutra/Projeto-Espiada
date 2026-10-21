@@ -35,12 +35,13 @@ input:focus{outline:2px solid var(--navy-800);outline-offset:-1px;}
 .forgot:hover{text-decoration:underline;}
 button{width:100%;padding:15px;border:none;border-radius:4px;background:var(--navy-900);color:#fff;
   font:inherit;font-size:15px;cursor:pointer;box-shadow:0 3px 8px rgba(20,27,77,.3);}
+.erro{color:#C6433B;font-size:13.5px;margin:-4px 0 14px;}
+.erro:empty{display:none;}
 button:hover{background:var(--navy-800);}
 </style>
 </head>
 <body>
-  <!-- ponytail: sem rota de login na API ainda; só redireciona (sem mandar a senha na URL) -->
-  <form class="card" onsubmit="event.preventDefault(); location.href='interface.html'">
+  <form class="card" id="form">
     <div class="brand">
       <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
@@ -67,12 +68,21 @@ button:hover{background:var(--navy-800);}
     </div>
 
     <p class="req">* indica um campo obrigatório</p>
-    <input name="usuario" placeholder="Usuário*" aria-label="Usuário" required autocomplete="username">
+    <input name="login" type="email" placeholder="E-mail*" aria-label="E-mail" required autocomplete="username">
     <input name="senha" type="password" placeholder="Senha*" aria-label="Senha" required autocomplete="current-password">
+    <p class="erro" id="erro" role="alert"></p>
     <a class="forgot" href="#">Esqueceu o seu usuário ou senha?</a>
     <button type="submit">Acessar</button>
   </form>
 <script>
+document.getElementById('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = await fetch('/api/login', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+  if (r.ok) location.href = 'interface.html';
+  else document.getElementById('erro').textContent = (await r.json()).erro;
+});
+
 // a íris do logo segue o mouse, sem sair do globo do olho
 const pupila = document.getElementById('pupila');
 addEventListener('mousemove', e => {
