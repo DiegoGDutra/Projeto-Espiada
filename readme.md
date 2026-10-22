@@ -69,10 +69,18 @@ Em produção defina a variável de ambiente `SECRET_KEY`; sem ela o servidor ge
 
 Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`acesso negado: ...`).
 
-**Primeiro usuário:** a secretaria inicial é criada pelo terminal (pede a senha duas vezes); depois ela cadastra os outros na aba **Config.** do painel.
+**Logins padrão:** o `src/importar.py` já cria um login de cada perfil (lista `LOGINS_PADRAO` no arquivo). Rodar o importador num banco que já tem dados só confere se esses logins existem e cria os que faltarem.
+
+| Login | Senha | Perfil | Ligado a |
+|---|---|---|---|
+| `secretaria@simpa.test` | `Secretaria#2026` | secretaria | — (vê os 120 alunos) |
+| `professor@simpa.test` | `Professor#2026` | professor | Docente Ada (`docente_id` 1, vê 78 alunos) |
+| `aluno@simpa.test` | `Aluno#2026` | aluno | Estudante Sintético 001 (`AES0001`) |
+
+São só para teste: fora do ambiente da turma, troque as senhas. Outros usuários são cadastrados pela secretaria na aba **Config.** do painel, ou pelo terminal (pede a senha duas vezes):
 
 ```bash
-flask --app src/Espiada.py criar-usuario secretaria@unievangelica.edu.br secretaria "Secretaria"
+flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "Fulano" --vinculo 2
 ```
 
 **Rotas** (campos obrigatórios em **negrito**)
@@ -140,7 +148,7 @@ Precisa do **Python 3.10+** instalado.
    pip install -r requirements.txt
    ```
    A única dependência externa é o **Flask**, que já instala junto Werkzeug, Jinja2, MarkupSafe, ItsDangerous, Click e Blinker. O `sqlite3` já vem com o Python.
-4. Importe o dataset para o banco (só na primeira vez):
+4. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
    ```bash
    python src/importar.py
    ```
@@ -148,11 +156,7 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    python src/Espiada.py
    ```
-6. Crie o primeiro usuário (secretaria), se ainda não existir:
-   ```bash
-   flask --app src/Espiada.py criar-usuario seu@email.com secretaria "Seu nome"
-   ```
-7. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); com e-mail e senha certos vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
+6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); entre com um dos [logins padrão](#login-e-perfis-rf01-rf11-rn09-rn10-ca01) e vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
 
 Para parar o servidor: `Ctrl+C` no terminal.
 

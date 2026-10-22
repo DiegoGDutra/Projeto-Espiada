@@ -2,7 +2,7 @@
 
 Rodar:  python src/Espiada.py   ->  http://127.0.0.1:5000
 Toda resposta da API é JSON. Erros sempre vêm como {"erro": "mensagem"} com o status HTTP certo.
-Primeiro usuário (secretaria):  flask --app src/Espiada.py criar-usuario email@x.com secretaria "Nome"
+Logins padrão de cada perfil: criados pelo src/importar.py (LOGINS_PADRAO); outros pelo comando criar-usuario.
 """
 import os
 import re

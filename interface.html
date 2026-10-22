@@ -64,6 +64,24 @@ nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
 .form-grid input:user-invalid{border-color:var(--risk-high);background:var(--risk-high-bg);}
 .form-grid small{font-size:11.5px;}
 .msg{font-size:13px;margin-top:12px;}
+/* Ficha do aluno (modal e "Meu desempenho") */
+.ficha-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;}
+.ficha-head h3{font-size:17px;font-weight:700;}
+.ficha-head .meta{font-size:12.5px;color:var(--text-soft);margin-top:3px;}
+.ficha-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;}
+.ficha-stats .stat-card{padding:12px 14px;}
+.ficha-stats .num{font-size:20px;margin-top:4px;}
+.ficha h4{font-size:13.5px;font-weight:700;margin:18px 0 8px;}
+.ficha table{font-size:13px;}
+.ficha tbody td{padding:8px 10px;}
+.ficha thead th{padding:0 10px 8px;}
+.ficha tbody tr{cursor:default;}
+.ficha tbody tr:hover{background:none;}
+.badge.neutro{color:var(--text-soft);background:var(--card-bg);border:1px solid var(--border);}
+.hist-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.hist-row:last-child{border-bottom:none;}
+.vazio{font-size:13px;color:var(--text-soft);}
+.erro-msg{font-size:13px;color:var(--risk-high);margin-top:8px;}
 /* Page title row */
 .pagehead{border-bottom:1px solid var(--border);}
 .pagehead-inner{max-width:1180px;margin:0 auto;padding:20px 28px 18px;}
@@ -143,7 +161,7 @@ tbody tr:last-child td{border-bottom:none;}
 /* Modal */
 .overlay{position:fixed; inset:0; background:rgba(10,12,25,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
 .overlay.show{display:flex;}
-.modal{background:#fff; border:1px solid var(--border); border-radius:14px; width:100%; max-width:440px; max-height:86vh; overflow-y:auto; padding:24px;}
+.modal{background:#fff; border:1px solid var(--border); border-radius:14px; width:100%; max-width:780px; max-height:86vh; overflow-y:auto; padding:24px;}
 .modal-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;}
 .modal-head h3{font-size:16px; font-weight:700;}
 .modal-head .meta{font-size:12.5px; color:var(--text-soft); margin-top:3px;}
@@ -173,6 +191,10 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="brand-text"><h1>SIMPA</h1><p>Monitoramento e Predição Acadêmica</p></div>
     </div>
     <nav>
+      <button class="nav-item" data-section="meu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Meu desempenho
+      </button>
       <button class="nav-item active" data-section="painel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Painel
@@ -213,6 +235,11 @@ tbody tr:last-child td{border-bottom:none;}
 </div>
 
 <div class="content">
+
+  <!-- MEU DESEMPENHO (aluno) -->
+  <section class="section" id="sec-meu">
+    <div class="panel ficha" id="minhaFicha"><p class="vazio">Carregando…</p></div>
+  </section>
 
   <!-- PAINEL -->
   <section class="section active" id="sec-painel">
@@ -320,7 +347,7 @@ tbody tr:last-child td{border-bottom:none;}
 <script>
 const alunos = [];
 // o que cada perfil enxerga no menu; a API confere de novo e recusa o resto (403)
-const SECOES = {aluno:["painel","monitoramento"], professor:["painel","monitoramento","predicoes","turmas","relatorios"],
+const SECOES = {aluno:["meu"], professor:["painel","monitoramento","predicoes","turmas","relatorios"],
   secretaria:["painel","monitoramento","predicoes","turmas","relatorios","config"]};
 const PERFIL = {aluno:"Aluno", professor:"Professor", secretaria:"Secretaria/coordenação"};
 
@@ -334,11 +361,6 @@ async function api(url, opcoes={}){
 }
 document.getElementById("sairBtn").addEventListener("click", async ()=>{
   await api("/api/logout",{method:"POST"}); location.href = "/";
-});
-api("/api/sessao").then(eu=>{
-  document.getElementById("userNome").textContent = eu.nome;
-  document.getElementById("userPerfil").textContent = PERFIL[eu.perfil];
-  document.querySelectorAll(".nav-item").forEach(b=>{ if(!SECOES[eu.perfil].includes(b.dataset.section)) b.remove(); });
 });
 
 const cadPerfil = document.getElementById("cadPerfil"), cadVinculo = document.getElementById("cadVinculo");
@@ -367,7 +389,8 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("sec-"+btn.dataset.section).classList.add("active");
-    const titles = {painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
+    const titles = {meu:["Meu desempenho","Suas notas, frequência e histórico de risco"],
+      painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
       monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e reprovações"],
       predicoes:["Predições","Classificação de risco gerada a partir dos indicadores monitorados"],
       turmas:["Turmas e cursos","Organização por curso e turma"],
@@ -451,24 +474,68 @@ function fillPredictSelect(){
     const o = document.createElement("option"); o.value=i; o.textContent = a.nome; sel.appendChild(o);
   });
 }
+// ---------- ficha do aluno: no modal (professor/secretaria) e em "Meu desempenho" (aluno) ----------
+let perfil = null;
+const fmt = v => v==null ? "—" : Number(v).toFixed(1);
+const SITUACAO = {APROVADO:["Aprovado","baixo"], EM_CURSO:["Em curso","neutro"],
+  REPROVADO_NOTA:["Reprovado por nota","alto"], REPROVADO_FREQUENCIA:["Reprovado por frequência","alto"]};
+const quando = t => new Date(t.replace(" ","T")+"Z").toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});  // banco grava em UTC
+
+async function mostrarFicha(matricula, el, fatores=null){
+  el.innerHTML = `<p class="vazio">Carregando…</p>`;
+  try{
+    const [a, hist] = await Promise.all([api(`/api/alunos/${matricula}`), api(`/api/alunos/${matricula}/predicao`)]);
+    const semestres = [...new Set(a.disciplinas.map(d=>d.semestre))].sort().reverse();  // mais recente primeiro
+    el.innerHTML = `
+      <div class="ficha-head">
+        <div><h3>${a.nome}</h3><div class="meta">${a.matricula} · ${a.curso} · ${a.periodo}º período · ${a.situacao}</div></div>
+        <span class="badge ${a.risco}">${riskLabel[a.risco]} risco</span>
+      </div>
+      <div class="ficha-stats">
+        <div class="stat-card"><div class="lbl">Frequência média</div><div class="num">${a.freq==null?"—":a.freq+"%"}</div></div>
+        <div class="stat-card"><div class="lbl">Nota média</div><div class="num">${fmt(a.nota)}</div></div>
+        <div class="stat-card"><div class="lbl">Reprovações</div><div class="num">${a.reprovacoes}</div></div>
+        <div class="stat-card"><div class="lbl">Distância do campus</div><div class="num">${a.distancia==null?"—":a.distancia+" km"}</div></div>
+      </div>
+      <h4>Histórico de risco</h4>
+      ${perfil!=="aluno" ? `<button class="btn" id="fichaPrever">Gerar predição</button>` : ""}
+      ${fatores ? `<div style="margin-top:10px">${fatores.map(f=>`
+        <div class="factor"><span>${f.descricao}</span><span class="tag ${f.negativo?"neg":"ok"}">${f.negativo?"Fator de risco":"Regular"}</span></div>`).join("")}</div>` : ""}
+      <div style="margin-top:8px">${hist.length ? hist.map(h=>`
+        <div class="hist-row"><span>${quando(h.criado_em)}</span>
+          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"}</span></span></div>`).join("")
+        : `<p class="vazio">Nenhuma predição gerada ainda.</p>`}</div>
+      ${semestres.map(sem=>`
+        <h4>Semestre ${sem}</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Disciplina</th><th>N1</th><th>N2</th><th>Projeto</th><th>Nota</th><th>Frequência</th><th>Situação</th></tr></thead>
+          <tbody>${a.disciplinas.filter(d=>d.semestre===sem).map(d=>{
+            const [txt, cor] = SITUACAO[d.situacao] ?? [d.situacao,"neutro"];
+            return `<tr><td>${d.disciplina}${d.tentativa>1?` <span class="vazio">(${d.tentativa}ª tentativa)</span>`:""}</td>
+              <td>${fmt(d.nota_n1)}</td><td>${fmt(d.nota_n2)}</td><td>${fmt(d.nota_projeto)}</td>
+              <td><b>${fmt(d.nota_final ?? d.nota_parcial)}</b></td><td>${d.frequencia_percentual==null?"—":d.frequencia_percentual+"%"}</td>
+              <td><span class="badge ${cor}">${txt}</span></td></tr>`;}).join("")}</tbody>
+        </table></div>`).join("") || `<h4>Disciplinas</h4><p class="vazio">Nenhuma disciplina registrada.</p>`}`;
+    const prever = el.querySelector("#fichaPrever");
+    if(prever) prever.addEventListener("click", async ()=>{
+      prever.disabled = true; prever.textContent = "Gerando…";
+      try{ const r = await api(`/api/alunos/${matricula}/predicao`,{method:"POST"}); mostrarFicha(matricula, el, r.fatores); }
+      catch(err){ prever.disabled = false; prever.textContent = "Gerar predição"; prever.insertAdjacentHTML("afterend", `<p class="erro-msg">${err.message}</p>`); }
+    });
+  }catch(err){ el.innerHTML = `<p class="erro-msg">${err.message}</p>`; }
+}
+
 function openModal(a){
   document.getElementById("modal").innerHTML = `
-    <div class="modal-head">
-      <div><h3>${a.nome}</h3><div class="meta">${a.curso} — ${a.turma??""}</div></div>
-      <button class="modal-close" id="modalClose">&times;</button>
-    </div>
-    <span class="badge ${a.risco}" style="margin-bottom:14px;display:inline-block">${riskLabel[a.risco]} risco</span>
-    <div class="detail-row"><span class="k">Frequência</span><span class="v">${a.freq??"—"}%</span></div>
-    <div class="detail-row"><span class="k">Nota média</span><span class="v">${a.nota==null?"—":a.nota.toFixed(1)}</span></div>
-    <div class="detail-row"><span class="k">Reprovações no histórico</span><span class="v">${a.reprovacoes}</span></div>
-    <div class="detail-row"><span class="k">Reclamações registradas</span><span class="v">${a.reclamacoes}</span></div>
-    <div class="detail-row"><span class="k">Distância até o campus</span><span class="v">${a.distancia} km</span></div>
-  `;
+    <div class="modal-head"><span></span><button class="modal-close" id="modalClose" aria-label="Fechar">&times;</button></div>
+    <div class="ficha" id="modalFicha"></div>`;
   document.getElementById("overlay").classList.add("show");
   document.getElementById("modalClose").addEventListener("click",closeModal);
+  mostrarFicha(a.matricula, document.getElementById("modalFicha"));
 }
 function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
 document.getElementById("predictBtn").addEventListener("click",async ()=>{
   if(alunos.length===0){ return; }
@@ -484,9 +551,15 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
   document.getElementById("predictResult").classList.add("show");
 });
 
-api("/api/alunos").then(lista=>{
+Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
+  perfil = eu.perfil;
+  document.getElementById("userNome").textContent = eu.nome;
+  document.getElementById("userPerfil").textContent = PERFIL[perfil];
+  document.querySelectorAll(".nav-item").forEach(b=>{ if(!SECOES[perfil].includes(b.dataset.section)) b.remove(); });
+  document.querySelector(".nav-item").click();  // abre a primeira aba do perfil
   alunos.push(...lista);
   renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
+  if(perfil==="aluno") mostrarFicha(lista[0].matricula, document.getElementById("minhaFicha"));  // aluno só recebe ele mesmo
 });
 ["searchInput","filterCurso","filterRisco"].forEach(id=>{
   document.getElementById(id).addEventListener("input",renderTable);
