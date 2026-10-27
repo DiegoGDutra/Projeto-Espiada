@@ -134,8 +134,8 @@ Precisa do **Python 3.10+** instalado.
 
 1. Baixe o projeto e entre na pasta:
    ```bash
-   git clone https://github.com/diegounilalele/Projeto-SIMPA.git
-   cd Projeto-SIMPA
+   git clone https://github.com/DiegoGDutra/Projeto-Espiada.git
+   cd Projeto-Espiada
    ```
 2. (Opcional) Crie e ative um ambiente virtual:
    ```bash
