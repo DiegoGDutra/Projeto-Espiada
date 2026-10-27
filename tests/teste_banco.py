@@ -1,7 +1,7 @@
-"""Confere as regras do schema.sql num banco em memória.  Rodar:  python src/teste_banco.py"""
+"""Confere as regras do schema.sql num banco em memória.  Rodar:  python -m tests.teste_banco"""
 import sqlite3
 
-from Espiada import SCHEMA, conectar
+from espiada.banco import SCHEMA, conectar
 
 con = conectar(":memory:")  # banco temporário, não mexe no funcionaai.db
 con.executescript(SCHEMA.read_text(encoding="utf-8"))

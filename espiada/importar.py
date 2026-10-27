@@ -1,17 +1,17 @@
 """Importa o dataset sintético (CSVs em dados/) para o banco. É a única entrada de notas e frequência (RN11).
 Também cria um login padrão de cada perfil (LOGINS_PADRAO), para o sistema já abrir usável.
 
-Rodar:  python src/importar.py   ->  enche o src/funcionaai.db (se já tiver alunos, só confere os logins padrão)
-Para importar de novo: apague src/funcionaai.db e rode outra vez.
+Rodar:  flask --app espiada importar   ->  enche o funcionaai.db (se já tiver alunos, só confere os logins padrão)
+Para importar de novo: apague funcionaai.db e rode outra vez.
 """
 import csv
-from pathlib import Path
 
+import click
 from werkzeug.security import generate_password_hash
 
-import Espiada
+from .banco import conectar, criar_banco
+from .config import DADOS
 
-DADOS = Path(__file__).resolve().parent.parent / "dados"
 ORDEM = ["cursos", "periodos_curriculares", "disciplinas", "cidades", "docentes", "alunos", "enderecos_alunos",
          "perfis_socioeconomicos", "tipos_bolsa", "bolsas_alunos", "matriculas_curso", "turmas",
          "registros_academicos", "indicadores_risco", "desfechos_alunos"]  # ordem das chaves estrangeiras
@@ -40,14 +40,14 @@ def criar_logins_padrao(con):
 
 
 def importar(caminho=None, pasta=DADOS):
-    Espiada.criar_banco(caminho)
-    con = Espiada.conectar(caminho)
+    criar_banco(caminho)
+    con = conectar(caminho)
     try:
         if con.execute("SELECT count(*) FROM alunos").fetchone()[0]:
             with con:
                 criar_logins_padrao(con)
             raise SystemExit("O banco já tem dados importados (logins padrão conferidos). "
-                             "Apague src/funcionaai.db para importar de novo.")
+                             "Apague funcionaai.db para importar de novo.")
         with con:  # tudo ou nada
             for tabela in ORDEM:
                 with open(pasta / f"{tabela}.csv", encoding="utf-8-sig", newline="") as f:
@@ -61,6 +61,8 @@ def importar(caminho=None, pasta=DADOS):
         con.close()
 
 
-if __name__ == "__main__":
+@click.command("importar")
+def importar_cli():
+    """Importa o dataset sintético (dados/) para o banco."""
     for tabela, qtd in importar().items():
-        print(f"{tabela:24} {qtd}")
+        click.echo(f"{tabela:24} {qtd}")

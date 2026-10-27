@@ -1,23 +1,43 @@
 # Espiada — SIMPA
 
-Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQLite; servidor em `src/Espiada.py`.
+Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQLite; o servidor é o pacote `espiada/`.
 
 ## Tecnologias
 
 | Parte | Tecnologia |
 |---|---|
 | Back-end | Python 3.10+ com Flask |
-| Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
-| Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
-| Front-end | HTML + CSS + JavaScript puro (`login.html`, `interface.html`) |
+| Banco de dados | SQLite (`funcionaai.db`), tabelas em `espiada/schema.sql` |
+| Dados | dataset sintético fornecido (`dados/`), importado por `espiada/importar.py` |
+| Front-end | HTML + CSS + JavaScript puro (`static/login.html`, `static/interface.html`) |
 | Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
+
+## Estrutura do projeto
+
+Cada arquivo cuida de uma coisa só e muda por um motivo só. As dependências vão num sentido: `rotas` usa `auth` e `risco`, que usam `banco`; o `banco` não conhece ninguém.
+
+```
+espiada/            o sistema (pacote Python)
+  __init__.py       create_app(): monta o Flask e registra rotas e comandos
+  __main__.py       python -m espiada: sobe o servidor
+  config.py         caminhos e SECRET_KEY
+  banco.py          conexão, transação e consulta no SQLite
+  schema.sql        tabelas
+  auth.py           login, perfis, permissões e o comando criar-usuario
+  risco.py          cálculo do risco (não depende do Flask)
+  rotas.py          endpoints HTTP: lê a requisição, chama as regras, devolve JSON
+  importar.py       comando importar: carrega o dataset sintético
+static/             login.html e interface.html
+tests/              teste_banco.py e teste_api.py
+dados/              dataset sintético (CSVs)
+```
 
 ## Banco de dados
 
-As tabelas estão em [`src/schema.sql`](src/schema.sql) e são criadas sozinhas quando o servidor sobe.
+As tabelas estão em [`espiada/schema.sql`](espiada/schema.sql) e são criadas sozinhas quando o servidor sobe.
 
-**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência (RN11).
-Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de novo.
+**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `flask --app espiada importar`, e nenhuma rota da API escreve nota ou frequência (RN11).
+Para recriar o banco do zero: apague `funcionaai.db` e rode o importador de novo.
 
 | Tabela | Guarda |
 |---|---|
@@ -33,12 +53,12 @@ Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de 
 | `feedback` | comentários do aluno sobre o curso ou a instituição — do sistema |
 | `predicao_ia` | histórico de predições do sistema (baixo/médio/alto); alteração manual exige justificativa — do sistema |
 
-Para conferir as regras do banco: `python src/teste_banco.py`
+Para conferir as regras do banco: `python -m tests.teste_banco`
 
 ## API
 
 Tudo fica em `/api/...`, é organizado por recurso e usa JSON na entrada e na saída (RNF02).
-Para conferir as rotas: `python src/teste_api.py`
+Para conferir as rotas: `python -m tests.teste_api`
 
 **Padrão das respostas**
 
@@ -69,7 +89,7 @@ Em produção defina a variável de ambiente `SECRET_KEY`; sem ela o servidor ge
 
 Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`acesso negado: ...`).
 
-**Logins padrão:** o `src/importar.py` já cria um login de cada perfil (lista `LOGINS_PADRAO` no arquivo). Rodar o importador num banco que já tem dados só confere se esses logins existem e cria os que faltarem.
+**Logins padrão:** o importador (`espiada/importar.py`) já cria um login de cada perfil (lista `LOGINS_PADRAO` no arquivo). Rodar o importador num banco que já tem dados só confere se esses logins existem e cria os que faltarem.
 
 | Login | Senha | Perfil | Ligado a |
 |---|---|---|---|
@@ -80,7 +100,7 @@ Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`ac
 São só para teste: fora do ambiente da turma, troque as senhas. Outros usuários são cadastrados pela secretaria na aba **Config.** do painel, ou pelo terminal (pede a senha duas vezes):
 
 ```bash
-flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "Fulano" --vinculo 2
+flask --app espiada criar-usuario fulano@unievangelica.edu.br professor "Fulano" --vinculo 2
 ```
 
 **Rotas** (campos obrigatórios em **negrito**)
@@ -150,11 +170,11 @@ Precisa do **Python 3.10+** instalado.
    A única dependência externa é o **Flask**, que já instala junto Werkzeug, Jinja2, MarkupSafe, ItsDangerous, Click e Blinker. O `sqlite3` já vem com o Python.
 4. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
    ```bash
-   python src/importar.py
+   flask --app espiada importar
    ```
 5. Rode o servidor:
    ```bash
-   python src/Espiada.py
+   python -m espiada
    ```
 6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); entre com um dos [logins padrão](#login-e-perfis-rf01-rf11-rn09-rn10-ca01) e vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
 
@@ -164,12 +184,12 @@ Para parar o servidor: `Ctrl+C` no terminal.
 
 ### Visão geral
 
-Os dados acadêmicos vêm do dataset sintético fornecido, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
+Os dados acadêmicos vêm do dataset sintético fornecido, importado por `espiada/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
 
 ```mermaid
 flowchart LR
     AVA["Dataset sintético (dados/)<br/>notas, frequência, perfil"] -->|importar.py| DB
-    subgraph Servidor["Servidor Flask (src/Espiada.py)"]
+    subgraph Servidor["Servidor Flask (espiada/)"]
         API["API /api/..."]
         CALC["Cálculo de risco<br/>regras + pesos"]
         API --> CALC
@@ -246,4 +266,4 @@ erDiagram
 - `reprovacoes` = registros com situação `REPROVADO_NOTA` ou `REPROVADO_FREQUENCIA`
 - `distancia` = distância rodoviária da cidade onde o aluno mora até Anápolis
 - `reclamacoes` = feedbacks com avaliação 1 ou 2
-- `risco` (`calcular_risco()` em `src/Espiada.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.
+- `risco` (`calcular_risco()` em `espiada/risco.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.

@@ -1,6 +1,6 @@
 -- Banco do SIMPA (SQLite). Regras do Trello citadas entre parênteses.
 -- Parte 1: tabelas do dataset sintético fornecido (dados/LEIA-ME.md), idênticas ao schema_sqlite.sql dele,
--- mais os CHECK de notas/frequência (RN04). Os dados entram só pelo src/importar.py, ninguém edita à mão (RN11).
+-- mais os CHECK de notas/frequência (RN04). Os dados entram só pelo importar.py, ninguém edita à mão (RN11).
 -- Parte 2: tabelas do próprio sistema (login, feedback, histórico de predições).
 
 CREATE TABLE IF NOT EXISTS cursos (

@@ -4,8 +4,8 @@
 
 | Funcionalidade | Requisitos | % | Feito | Falta |
 |---|---|---|---|---|
-| Banco de dados SQLite | RNF01, RN01, RN04 | 100% | `src/schema.sql` com as tabelas do dataset e do sistema; matrícula = `codigo_academico`; `CHECK` de nota e frequência entre 0 e 100 | — |
-| Importação dos dados acadêmicos | RN11, RN16, CA06 | 100% | `src/importar.py` importa o dataset sintético; nenhuma rota escreve nota ou frequência | Os cards do Trello ainda dizem "API do AVA" (a decisão foi usar o dataset) |
+| Banco de dados SQLite | RNF01, RN01, RN04 | 100% | `espiada/schema.sql` com as tabelas do dataset e do sistema; matrícula = `codigo_academico`; `CHECK` de nota e frequência entre 0 e 100 | — |
+| Importação dos dados acadêmicos | RN11, RN16, CA06 | 100% | `espiada/importar.py` importa o dataset sintético; nenhuma rota escreve nota ou frequência | Os cards do Trello ainda dizem "API do AVA" (a decisão foi usar o dataset) |
 | API REST em JSON | RNF02 | 100% | Rotas por recurso em `/api/...`, erros padronizados `{"erro": ...}` | Novas rotas conforme as funcionalidades abaixo |
 | Login e sessão | RF01, RNF07, CA01 | 100% | Login por e-mail, senha forte, hash, cookie `HttpOnly`/`SameSite`, bloqueio após 5 erros | — |
 | Perfis e permissões | RF11, RN09, RN10, CA01 | 100% | Aluno, professor e secretaria, cada um vê só o seu; `403` registrado no log; cadastro pela aba Config. ou terminal | — |
@@ -28,7 +28,7 @@
 | Cálculo de risco por regras | RF08, RN06, CA03 | 60% | `calcular_risco()` com frequência, nota, reprovações, reclamações e distância; níveis baixo/médio/alto | Entrega de atividades; estatísticas (média, mediana, moda, variância, desvio padrão); análise do texto dos feedbacks |
 | Frequência < 75% força risco alto | RN08 | 25% | Frequência baixa soma +2 pontos | Forçar "alto" independente da nota (hoje só dá "médio") |
 | Alto risco só com histórico mínimo | RN07 | 0% | — | Exigir um mínimo de registros antes de classificar como "alto" |
-| Pesos configuráveis | RF06, CA11 | 0% | Pesos fixos na lista `REGRAS` de `src/Espiada.py` | Guardar os pesos no banco, criar rota e tela para editar |
+| Pesos configuráveis | RF06, CA11 | 0% | Pesos fixos na lista `REGRAS` de `espiada/risco.py` | Guardar os pesos no banco, criar rota e tela para editar |
 | Predição com LLM (Ollama) | RF16, RNF09, CA04 | 20% | Aba Predições, rota `POST /api/alunos/{matricula}/predicao` e histórico em `predicao_ia` (só com as regras) | Integrar a LLM do Ollama (≥ 7B) com o contexto do aluno |
 | Recálculo das predições | RF10, RNF05, CA04 | 10% | Predição gerada à mão, um aluno por vez | Recalcular todos quando chegarem dados novos; 1000 alunos em até 5 min |
 | Alteração manual de predição | RN14, RN15 | 20% | Colunas `alterada_por` e `justificativa` com `CHECK` exigindo justificativa | Rota e tela; só secretaria ou o professor da turma pode alterar |
@@ -53,7 +53,7 @@
 | LGPD | RNF11, RNF12, RNF14, RNF15, RN02 | 15% | Cada perfil só recebe os alunos que pode ver | Criptografar nome e matrícula no banco; anonimizar os dados agregados dos relatórios |
 | Interface adaptável a dispositivos | RNF03, CA15 | 30% | Uma regra `@media` no painel | Ajustar o login e testar em celular e tablet |
 | Escalabilidade | RNF04, CA15 | 0% | — | Teste com vários usuários ao mesmo tempo |
-| Testes | Plano de teste | 40% | `src/teste_banco.py` e `src/teste_api.py` passam; modo debug ligado | Testes de segurança, com usuários reais, de carga, de dispositivos e de notificação |
+| Testes | Plano de teste | 40% | `tests/teste_banco.py` e `tests/teste_api.py` passam; modo debug ligado | Testes de segurança, com usuários reais, de carga, de dispositivos e de notificação |
 
 ## Próximos passos pelo cronograma
 
