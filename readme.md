@@ -16,13 +16,13 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 
 As tabelas estão em [`src/schema.sql`](src/schema.sql) e são criadas sozinhas quando o servidor sobe.
 
-**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência (RN11).
+**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência.
 Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de novo.
 
 | Tabela | Guarda |
 |---|---|
 | `cursos`, `periodos_curriculares`, `disciplinas`, `turmas`, `docentes` | estrutura acadêmica; a turma liga disciplina + docente num semestre |
-| `alunos` | aluno; `codigo_academico` (ex.: `AES0001`) é a matrícula (RN01) |
+| `alunos` | aluno; `codigo_academico` (ex.: `AES0001`) é a matrícula |
 | `matriculas_curso` | vínculo do aluno com o curso (período atual, turno, status) |
 | `registros_academicos` | notas (0 a 100) e frequência de cada aluno em cada turma e tentativa |
 | `enderecos_alunos`, `cidades` | onde o aluno mora e a distância até Anápolis |
@@ -37,7 +37,7 @@ Para conferir as regras do banco: `python src/teste_banco.py`
 
 ## API
 
-Tudo fica em `/api/...`, é organizado por recurso e usa JSON na entrada e na saída (RNF02).
+Tudo fica em `/api/...`, é organizado por recurso e usa JSON na entrada e na saída.
 Para conferir as rotas: `python src/teste_api.py`
 
 **Padrão das respostas**
@@ -55,17 +55,17 @@ Para conferir as rotas: `python src/teste_api.py`
 
 Um indicador sem dado ainda (ex.: aluno sem notas) vem como `null`.
 
-### Login e perfis (RF01, RF11, RN09, RN10, CA01)
+### Login e perfis
 
 O login é por e-mail e senha; a sessão fica num cookie assinado (`HttpOnly`, `SameSite=Strict`). Toda rota `/api/...` exige login, menos `POST /api/login`.
-Senha: 8+ caracteres com maiúscula, minúscula, número e caractere especial (RF01), guardada só em hash (RNF07).
+Senha: 8+ caracteres com maiúscula, minúscula, número e caractere especial, guardada só em hash.
 Em produção defina a variável de ambiente `SECRET_KEY`; sem ela o servidor gera uma nova a cada vez que sobe (e todo mundo precisa logar de novo).
 
 | Perfil | Vê | Pode |
 |---|---|---|
 | aluno | só o próprio resumo, disciplinas e histórico de predição | enviar feedback (só o próprio) |
-| professor | só alunos que passaram por turmas dele (RN09); cursos, disciplinas, docentes, turmas | gerar predição desses alunos; não altera dado nenhum |
-| secretaria | tudo (RN10) | gerar predição de qualquer aluno, cadastrar usuários |
+| professor | só alunos que passaram por turmas dele; cursos, disciplinas, docentes, turmas | gerar predição desses alunos; não altera dado nenhum |
+| secretaria | tudo | gerar predição de qualquer aluno, cadastrar usuários |
 
 Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`acesso negado: ...`).
 
@@ -101,7 +101,7 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 | POST | `/api/alunos/{matricula}/predicao` | — | `{matricula, risco, score, fatores}` e grava no histórico |
 | GET | `/api/alunos/{matricula}/predicao` | — | histórico de predições, da mais nova para a mais antiga |
 
-`{matricula}` é o `codigo_academico` do aluno (ex.: `AES0001`). Não existe rota para criar ou alterar nota e frequência: elas vêm só do importador (RN11).
+`{matricula}` é o `codigo_academico` do aluno (ex.: `AES0001`). Não existe rota para criar ou alterar nota e frequência: elas vêm só do importador.
 
 **Resumo do aluno** (`GET /api/alunos`, o que o painel usa):
 
@@ -134,7 +134,7 @@ Precisa do **Python 3.10+** instalado.
 
 1. Baixe o projeto e entre na pasta:
    ```bash
-   git clone https://github.com/diegounilalele/Projeto-SIMPA.git
+   git clone https://github.com/DiegoGDutra/Projeto-Espiada
    cd Projeto-SIMPA
    ```
 2. (Opcional) Crie e ative um ambiente virtual:
@@ -156,7 +156,7 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    python src/Espiada.py
    ```
-6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); entre com um dos [logins padrão](#login-e-perfis-rf01-rf11-rn09-rn10-ca01) e vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
+6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); entre com um dos [logins padrão](#login-e-perfis) e vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
 
 Para parar o servidor: `Ctrl+C` no terminal.
 
@@ -185,7 +185,7 @@ flowchart LR
 
 ### Login e perfis
 
-Cada perfil vê só o que pode (RN09, RN10, CA01).
+Cada perfil vê só o que pode.
 
 ```mermaid
 flowchart TD
@@ -199,7 +199,7 @@ flowchart TD
 
 ### Predição de risco
 
-Roda sempre que chegam dados novos (RF10). Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde.
+Roda sempre que chegam dados novos. Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde.
 
 ```mermaid
 flowchart TD

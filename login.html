@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);color:var(--text);background:#fff;min-height:100vh;
-  display:flex;align-items:center;justify-content:center;padding:40px 16px;}
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:40px 16px;}
 .card{width:100%;max-width:370px;background:#fff;border-radius:6px;padding:48px 30px 30px;
   box-shadow:0 2px 14px rgba(20,27,77,.10);}
 .brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:34px;}
@@ -38,6 +38,9 @@ button{width:100%;padding:15px;border:none;border-radius:4px;background:var(--na
 .erro{color:#C6433B;font-size:13.5px;margin:-4px 0 14px;}
 .erro:empty{display:none;}
 button:hover{background:var(--navy-800);}
+.footer-login{text-align:center;font-size:12px;color:var(--text-soft);line-height:1.5;max-width:370px;}
+.footer-login a{color:var(--navy-800);text-decoration:underline;}
+.footer-login .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 4px;border-radius:3px;font-size:11px;font-weight:500;}
 </style>
 </head>
 <body>
@@ -74,6 +77,11 @@ button:hover{background:var(--navy-800);}
     <a class="forgot" href="#">Esqueceu o seu usuário ou senha?</a>
     <button type="submit">Acessar</button>
   </form>
+
+  <footer class="footer-login">
+    <p>&copy; <span class="placeholder">[Ano]</span> <span class="placeholder">[Nome da Organização / Razão Social]</span>. Todos os direitos reservados.</p>
+    <p><a href="politica-privacidade.html">Política de Privacidade (LGPD)</a> — DPO: <span class="placeholder">[contato@exemplo.com]</span></p>
+  </footer>
 <script>
 document.getElementById('form').addEventListener('submit', async e => {
   e.preventDefault();

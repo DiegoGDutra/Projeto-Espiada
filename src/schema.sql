@@ -1,6 +1,6 @@
--- Banco do SIMPA (SQLite). Regras do Trello citadas entre parênteses.
+-- Banco do SIMPA (SQLite).
 -- Parte 1: tabelas do dataset sintético fornecido (dados/LEIA-ME.md), idênticas ao schema_sqlite.sql dele,
--- mais os CHECK de notas/frequência (RN04). Os dados entram só pelo src/importar.py, ninguém edita à mão (RN11).
+-- mais os CHECK de notas/frequência. Os dados entram só pelo src/importar.py, ninguém edita à mão.
 -- Parte 2: tabelas do próprio sistema (login, feedback, histórico de predições).
 
 CREATE TABLE IF NOT EXISTS cursos (
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS docentes (
   regime_trabalho TEXT NOT NULL
 );
 
--- codigo_academico é a matrícula do aluno (RN01) e é o que a API usa nas rotas.
+-- codigo_academico é a matrícula do aluno e é o que a API usa nas rotas.
 CREATE TABLE IF NOT EXISTS alunos (
   aluno_id INTEGER PRIMARY KEY,
   codigo_academico TEXT NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS matriculas_curso (
   UNIQUE (aluno_id, curso_id)
 );
 
--- Professor só vê as próprias turmas (RN09).
+-- Professor só vê as próprias turmas.
 CREATE TABLE IF NOT EXISTS turmas (
   turma_id INTEGER PRIMARY KEY,
   disciplina_id INTEGER NOT NULL REFERENCES disciplinas(disciplina_id),
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS turmas (
   UNIQUE (codigo_turma)
 );
 
--- Uma linha por aluno, turma e tentativa. Notas e frequência de 0 a 100 (RN04).
+-- Uma linha por aluno, turma e tentativa. Notas e frequência de 0 a 100.
 CREATE TABLE IF NOT EXISTS registros_academicos (
   registro_id INTEGER PRIMARY KEY,
   matricula_curso_id INTEGER NOT NULL REFERENCES matriculas_curso(matricula_curso_id),
@@ -184,9 +184,9 @@ CREATE TABLE IF NOT EXISTS desfechos_alunos (
 
 -- ---------- Parte 2: tabelas do sistema ----------
 
--- Quem faz login: aluno, professor ou secretaria (RF11). Senha só em hash (RNF07).
+-- Quem faz login: aluno, professor ou secretaria. Senha só em hash.
 CREATE TABLE IF NOT EXISTS usuario (
-  login      TEXT PRIMARY KEY,                       -- e-mail (RF01)
+  login      TEXT PRIMARY KEY,                       -- e-mail
   perfil     TEXT NOT NULL CHECK (perfil IN ('aluno', 'professor', 'secretaria')),
   nome       TEXT NOT NULL,
   senha_hash TEXT NOT NULL,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS usuario (
   CHECK ((perfil = 'aluno') = (aluno_id IS NOT NULL) AND (perfil = 'professor') = (docente_id IS NOT NULL))
 );
 
--- Aluno só comenta sobre o próprio curso ou a instituição (RN05).
+-- Aluno só comenta sobre o próprio curso ou a instituição.
 CREATE TABLE IF NOT EXISTS feedback (
   feedback_id     INTEGER PRIMARY KEY,
   aluno_id        INTEGER NOT NULL REFERENCES alunos(aluno_id),
@@ -205,8 +205,8 @@ CREATE TABLE IF NOT EXISTS feedback (
   criado_em       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Histórico de predições do sistema (RF07, RF02): uma linha por cálculo, nunca sobrescreve.
--- Risco em níveis (RN06); alteração manual exige quem alterou e justificativa (RN14, RN15).
+-- Histórico de predições do sistema: uma linha por cálculo, nunca sobrescreve.
+-- Risco em níveis; alteração manual exige quem alterou e justificativa.
 CREATE TABLE IF NOT EXISTS predicao_ia (
   predicao_id         INTEGER PRIMARY KEY,
   matricula_curso_id  INTEGER NOT NULL REFERENCES matriculas_curso(matricula_curso_id),

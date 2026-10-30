@@ -25,13 +25,13 @@ def entra(login, senha=None, status=200):
     return chama("POST", "/api/login", {"login": login, "senha": senha}, status)
 
 
-# ---------- login e cadastro (RF01, RF11) ----------
+# ---------- login e cadastro ----------
 chama("GET", "/api/alunos", status=401)  # sem login, nada da API abre
 assert api.get("/interface.html").status_code == 302
 entra("secretaria@simpa.test", "errada", 401)
 assert entra("SECRETARIA@simpa.test")["perfil"] == "secretaria"  # login padrão; e-mail sem diferença de maiúscula
 assert api.get("/interface.html").status_code == 200
-for senha in ["Cur#1a", "SemEspecial1", "SEMMINUSC#1", "semmaiusc#1", "SemNumero#"]:  # RF01
+for senha in ["Cur#1a", "SemEspecial1", "SEMMINUSC#1", "semmaiusc#1", "SemNumero#"]:
     chama("POST", "/api/usuarios", {"login": "x@simpa.test", "perfil": "aluno", "nome": "X", "senha": senha,
                                     "vinculo": "AES0001"}, 400)
 chama("POST", "/api/usuarios", {"login": "nao-email", "perfil": "secretaria", "nome": "X", "senha": SENHA}, 400)
@@ -45,9 +45,9 @@ chama("POST", "/api/usuarios", {"login": "ada@simpa.test", "perfil": "professor"
 chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "secretaria", "nome": "X", "senha": SENHA}, 409)
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "aluno", "nome": "Y", "senha": SENHA,
                                 "vinculo": "AES0001"}, 409)  # AES0001 já tem login (o padrão)
-assert "Teste" not in str(Espiada.consultar("SELECT senha_hash FROM usuario"))  # só hash (RNF07)
+assert "Teste" not in str(Espiada.consultar("SELECT senha_hash FROM usuario"))  # só hash
 
-# ---------- secretaria vê tudo (RN10) ----------
+# ---------- secretaria vê tudo ----------
 assert chama("GET", "/api/cursos")[0]["nome"] == "Engenharia de Software"
 assert len(chama("GET", "/api/disciplinas")) == 40 and len(chama("GET", "/api/docentes")) == 18
 alunos = chama("GET", "/api/alunos")
@@ -61,7 +61,7 @@ assert chama("GET", "/api/alunos/AES0001/predicao")[0]["risco"] == p["risco"]
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso"}, 403)  # feedback é do aluno
 assert "erro" in chama("GET", "/api/alunos/XYZ", status=404)
 chama("GET", "/api/inexistente", status=404)
-chama("PUT", "/api/alunos/AES0001/desempenho", {"nota_n1": 100}, 404)  # nota não tem rota de escrita (RN11)
+chama("PUT", "/api/alunos/AES0001/desempenho", {"nota_n1": 100}, 404)  # nota não tem rota de escrita
 
 # ---------- aluno: só o próprio ----------
 chama("POST", "/api/logout")
@@ -77,10 +77,10 @@ chama("GET", "/api/docentes", status=403)
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "secretaria", "nome": "Y", "senha": SENHA}, 403)
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso", "avaliacao_curso": 1, "comentarios": "ruim"}, 201)
 assert chama("GET", "/api/alunos/AES0001")["reclamacoes"] == 1
-chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "professor"}, 400)  # RN05
+chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "professor"}, 400)
 chama("POST", "/api/alunos/AES0001/feedback", ["não é objeto"], 400)
 
-# ---------- professor: só alunos das próprias turmas (RN09), sem alterar dados ----------
+# ---------- professor: só alunos das próprias turmas, sem alterar dados ----------
 entra("professor@simpa.test")
 meus = {r["codigo_academico"] for r in Espiada.consultar("""
     SELECT DISTINCT a.codigo_academico FROM registros_academicos JOIN turmas t USING (turma_id)

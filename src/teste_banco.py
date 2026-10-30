@@ -28,14 +28,14 @@ con.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1
 con.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1, 'medio')")
 
 assert con.execute("SELECT count(*) FROM predicao_ia").fetchone()[0] == 2, "histórico guarda várias predições"
-assert recusa("INSERT INTO alunos VALUES (2, 'AES0001', 'X', '2000-01-01', 'X', 'X')"), "matrícula repetida (RN01)"
+assert recusa("INSERT INTO alunos VALUES (2, 'AES0001', 'X', '2000-01-01', 'X', 'X')"), "matrícula repetida"
 assert recusa("INSERT INTO matriculas_curso VALUES (2, 99, 1, 'x', 2026, 2, 1, 'x', 'x', 'x', 'x')"), "aluno inexistente"
-assert recusa("UPDATE registros_academicos SET nota_n1 = 101"), "nota acima de 100 (RN04)"
-assert recusa("UPDATE registros_academicos SET frequencia_percentual = -1"), "frequência abaixo de 0 (RN04)"
+assert recusa("UPDATE registros_academicos SET nota_n1 = 101"), "nota acima de 100"
+assert recusa("UPDATE registros_academicos SET frequencia_percentual = -1"), "frequência abaixo de 0"
 assert recusa("INSERT INTO usuario VALUES ('x', 'admin', 'X', 'h', NULL, NULL)"), "perfil inválido"
 assert recusa("INSERT INTO usuario VALUES ('x', 'aluno', 'X', 'h', NULL, NULL)"), "usuário aluno sem aluno ligado"
-assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1, 'altissimo')"), "nível inválido (RN06)"
+assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1, 'altissimo')"), "nível inválido"
 assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, alterada_por) VALUES (1, 'alto', 'ada@simpa.test')"), \
-    "alteração manual sem justificativa (RN15)"
-assert recusa("INSERT INTO feedback (aluno_id, alvo) VALUES (1, 'professor')"), "feedback só de curso/instituição (RN05)"
+    "alteração manual sem justificativa"
+assert recusa("INSERT INTO feedback (aluno_id, alvo) VALUES (1, 'professor')"), "feedback só de curso/instituição"
 print("ok: todas as regras do banco funcionam")

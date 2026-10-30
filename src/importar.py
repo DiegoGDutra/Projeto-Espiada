@@ -1,4 +1,4 @@
-"""Importa o dataset sintético (CSVs em dados/) para o banco. É a única entrada de notas e frequência (RN11).
+"""Importa o dataset sintético (CSVs em dados/) para o banco. É a única entrada de notas e frequência.
 Também cria um login padrão de cada perfil (LOGINS_PADRAO), para o sistema já abrir usável.
 
 Rodar:  python src/importar.py   ->  enche o src/funcionaai.db (se já tiver alunos, só confere os logins padrão)
@@ -16,7 +16,7 @@ ORDEM = ["cursos", "periodos_curriculares", "disciplinas", "cidades", "docentes"
          "perfis_socioeconomicos", "tipos_bolsa", "bolsas_alunos", "matriculas_curso", "turmas",
          "registros_academicos", "indicadores_risco", "desfechos_alunos"]  # ordem das chaves estrangeiras
 
-# login, perfil, senha, vínculo (matrícula do aluno / docente_id). Senhas seguem o RF01; troque-as fora do ambiente de teste.
+# login, perfil, senha, vínculo (matrícula do aluno / docente_id). Troque as senhas fora do ambiente de teste.
 LOGINS_PADRAO = [
     ("secretaria@simpa.test", "secretaria", "Secretaria#2026", None),
     ("professor@simpa.test", "professor", "Professor#2026", 1),  # Docente Ada

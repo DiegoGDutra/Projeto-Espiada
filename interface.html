@@ -89,6 +89,9 @@ nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
 .pagehead p{font-size:13px;color:var(--text-soft);margin-top:3px;}
 
 .content{max-width:1180px; margin:0 auto; padding:26px 28px 60px;}
+footer.app-footer{border-top:1px solid var(--border);padding:24px 28px;text-align:center;font-size:12.5px;color:var(--text-soft);background:#fff;margin-top:40px;line-height:1.6;}
+footer.app-footer a{color:var(--navy-800);text-decoration:underline;}
+footer.app-footer .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 5px;border-radius:3px;font-size:11.5px;font-weight:500;}
 .section{display:none;}
 .section.active{display:block; animation:fade .25s ease;}
 @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
@@ -339,6 +342,11 @@ tbody tr:last-child td{border-bottom:none;}
   </section>
 
 </div>
+
+<footer class="app-footer">
+  <p>&copy; <span class="placeholder">[Ano]</span> <span class="placeholder">[Nome da Organização / Razão Social]</span>. Todos os direitos reservados. Em conformidade com a LGPD.</p>
+  <p><a href="politica-privacidade.html">Política de Privacidade</a> — Atualizado em <span class="placeholder">[DD/MM/AAAA]</span> | DPO: <span class="placeholder">[contato@exemplo.com]</span></p>
+</footer>
 
 <div class="overlay" id="overlay">
   <div class="modal" id="modal"></div>
