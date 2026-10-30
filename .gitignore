@@ -7,5 +7,6 @@ funcionaai.db
 *.json
 
 __pycache__/
+.venv/
 # Graphify output
 graphify-out/

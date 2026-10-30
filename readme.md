@@ -1,6 +1,6 @@
 # Espiada — SIMPA
 
-Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQLite; servidor em `src/Espiada.py`.
+Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQLite em arquitetura MVC; o servidor sobe por `src/Espiada.py`.
 
 ## Tecnologias
 
@@ -9,8 +9,35 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 | Back-end | Python 3.10+ com Flask |
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
 | Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
-| Front-end | HTML + CSS + JavaScript puro (`login.html`, `interface.html`) |
+| Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`) |
 | Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
+
+## Arquitetura (MVC)
+
+```
+src/
+├── Espiada.py          ponto de entrada: cria o app, liga os controllers, trata erros
+├── models/             M — dados e regras de negócio (não conhece HTTP nem tela)
+│   ├── banco.py          conexão SQLite, consultar(), transacao(), ErroModelo
+│   ├── usuario.py        cadastro com validação de e-mail/senha, autenticação
+│   ├── academico.py      cursos, disciplinas, docentes, turmas (só leitura)
+│   ├── alunos.py         resumo com indicadores, ficha, quem pode ver quem
+│   ├── predicao.py       regras e cálculo do risco, histórico de predições
+│   └── feedback.py       comentários do aluno
+├── views/              V — telas: login.html, interface.html, sobre.html (sobre, equipe, termos, LGPD, cookies)
+├── static/fontes/      arquivos do front (fonte Inter + licença)
+├── controllers/        C — rotas HTTP (Blueprints do Flask)
+│   ├── comum.py          ler_json(), exige() e negar() (perfil e 403 com log)
+│   ├── auth.py           /api/login, /api/logout, /api/sessao, /api/usuarios, comando criar-usuario
+│   ├── paginas.py        /, /interface.html, /sobre.html
+│   ├── academico.py      /api/cursos, /api/disciplinas, /api/docentes, /api/turmas
+│   └── alunos.py         /api/alunos/... (lista, ficha, feedback, predição)
+├── schema.sql          tabelas e regras do banco
+├── importar.py         carrega o dataset de dados/ no banco
+└── teste_banco.py, teste_api.py
+```
+
+Uma requisição passa assim: a **view** (JavaScript da tela) chama a API → o **controller** confere login e perfil → o **model** consulta ou grava no banco e aplica a regra → o controller devolve JSON → a view desenha.
 
 ## Banco de dados
 
@@ -156,7 +183,7 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    python src/Espiada.py
    ```
-6. Abra http://127.0.0.1:5000 — abre a tela de login (`login.html`); entre com um dos [logins padrão](#login-e-perfis) e vai para o painel (`interface.html`), que mostra só as abas do seu perfil.
+6. Abra http://127.0.0.1:5000 — abre a tela de login (`src/views/login.html`); entre com um dos [logins padrão](#login-e-perfis) e vai para o painel (`src/views/interface.html`), que mostra só as abas do seu perfil.
 
 Para parar o servidor: `Ctrl+C` no terminal.
 
@@ -246,4 +273,4 @@ erDiagram
 - `reprovacoes` = registros com situação `REPROVADO_NOTA` ou `REPROVADO_FREQUENCIA`
 - `distancia` = distância rodoviária da cidade onde o aluno mora até Anápolis
 - `reclamacoes` = feedbacks com avaliação 1 ou 2
-- `risco` (`calcular_risco()` em `src/Espiada.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.
+- `risco` (`calcular_risco()` em `src/models/predicao.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.

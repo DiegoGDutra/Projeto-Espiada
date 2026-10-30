@@ -9,7 +9,7 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
-import Espiada
+from models.banco import conectar, criar_banco
 
 DADOS = Path(__file__).resolve().parent.parent / "dados"
 ORDEM = ["cursos", "periodos_curriculares", "disciplinas", "cidades", "docentes", "alunos", "enderecos_alunos",
@@ -40,8 +40,8 @@ def criar_logins_padrao(con):
 
 
 def importar(caminho=None, pasta=DADOS):
-    Espiada.criar_banco(caminho)
-    con = Espiada.conectar(caminho)
+    criar_banco(caminho)
+    con = conectar(caminho)
     try:
         if con.execute("SELECT count(*) FROM alunos").fetchone()[0]:
             with con:

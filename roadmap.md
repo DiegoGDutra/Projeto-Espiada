@@ -28,7 +28,7 @@
 | Cálculo de risco por regras | 60% | `calcular_risco()` com frequência, nota, reprovações, reclamações e distância; níveis baixo/médio/alto | Entrega de atividades; estatísticas (média, mediana, moda, variância, desvio padrão); análise do texto dos feedbacks |
 | Frequência < 75% força risco alto | 25% | Frequência baixa soma +2 pontos | Forçar "alto" independente da nota (hoje só dá "médio") |
 | Alto risco só com histórico mínimo | 0% | — | Exigir um mínimo de registros antes de classificar como "alto" |
-| Pesos configuráveis | 0% | Pesos fixos na lista `REGRAS` de `src/Espiada.py` | Guardar os pesos no banco, criar rota e tela para editar |
+| Pesos configuráveis | 0% | Pesos fixos na lista `REGRAS` de `src/models/predicao.py` | Guardar os pesos no banco, criar rota e tela para editar |
 | Predição com LLM (Ollama) | 20% | Aba Predições, rota `POST /api/alunos/{matricula}/predicao` e histórico em `predicao_ia` (só com as regras) | Integrar a LLM do Ollama (≥ 7B) com o contexto do aluno |
 | Recálculo das predições | 10% | Predição gerada à mão, um aluno por vez | Recalcular todos quando chegarem dados novos; 1000 alunos em até 5 min |
 | Alteração manual de predição | 20% | Colunas `alterada_por` e `justificativa` com `CHECK` exigindo justificativa | Rota e tela; só secretaria ou o professor da turma pode alterar |
