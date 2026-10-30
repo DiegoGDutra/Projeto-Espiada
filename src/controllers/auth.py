@@ -11,7 +11,7 @@ from models.banco import ErroModelo, criar_banco
 bp = Blueprint("auth", __name__, cli_group=None)  # cli_group=None: o comando fica "flask criar-usuario"
 
 MAX_FALHAS, BLOQUEIO_S = 5, 15 * 60
-falhas = {}  # login -> horários das últimas senhas erradas. ponytail: em memória, zera ao reiniciar
+falhas = {}  # login -> horários das últimas senhas erradas (fica em memória, zera ao reiniciar)
 
 
 @bp.before_app_request

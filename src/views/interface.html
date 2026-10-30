@@ -34,15 +34,18 @@ header{
 }
 .header-inner{
   max-width:1180px; margin:0 auto; padding:14px 28px;
-  display:flex; align-items:center; justify-content:space-between; gap:24px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
 }
 .brand{display:flex; align-items:center; gap:11px; flex-shrink:0;}
-.mark{width:32px;height:32px;flex-shrink:0;}
+.mark{width:40px;height:40px;flex-shrink:0;}
+#pupila{transition:transform .1s ease-out;}
 .brand-text h1{font-size:15.5px;font-weight:800;color:var(--navy-900);line-height:1.15;}
 .brand-text p{font-size:10px;color:var(--text-soft);margin-top:1px;}
-nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
+/* menu sempre numa linha só: se não couber, rola de lado em vez de quebrar */
+nav{display:flex; gap:2px; flex:1; min-width:0; justify-content:safe center; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none;}
+nav::-webkit-scrollbar{display:none;}
 .nav-item{
-  display:flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px;
+  display:flex; align-items:center; gap:7px; padding:9px 12px; border-radius:8px; flex-shrink:0;
   color:var(--text-soft); font-size:13.5px; font-weight:500; cursor:pointer; border:none; background:none;
   transition:background .15s,color .15s; white-space:nowrap;
 }
@@ -59,7 +62,9 @@ nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
 /* Cadastro de usuário (RF11) */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px;}
 .form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--text-soft);}
-.form-grid input,.form-grid select{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:inherit;font-size:13.5px;color:var(--text);}
+.form-grid input,.form-grid select,.form-grid textarea{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:inherit;font-size:13.5px;color:var(--text);}
+.form-grid .largo{grid-column:1/-1;}
+.form-grid textarea{resize:vertical;}
 .form-grid input:user-invalid{border-color:var(--risk-high);background:var(--risk-high-bg);}
 .form-grid small{font-size:11.5px;}
 .msg{font-size:13px;margin-top:12px;}
@@ -88,7 +93,7 @@ nav{display:flex; gap:4px; flex:1; justify-content:center; flex-wrap:wrap;}
 .pagehead p{font-size:13px;color:var(--text-soft);margin-top:3px;}
 
 .content{max-width:1180px; margin:0 auto; padding:26px 28px 60px;}
-footer.app-footer{border-top:1px solid var(--border);padding:24px 28px;text-align:center;font-size:12.5px;color:var(--text-soft);background:#fff;margin-top:40px;line-height:1.6;}
+footer.app-footer{border-top:1px solid var(--border);padding:24px 28px;text-align:center;font-size:12.5px;color:var(--text-soft);background:#F1F2F7;margin-top:40px;line-height:1.6;}
 footer.app-footer a{color:var(--navy-800);text-decoration:underline;}
 footer.app-footer .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 5px;border-radius:3px;font-size:11.5px;font-weight:500;}
 .section{display:none;}
@@ -109,10 +114,31 @@ footer.app-footer .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 5px;
 .two-col{display:grid; grid-template-columns:1.3fr 1fr; gap:18px;}
 
 .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px;}
-.bar-row .name{width:66px; color:var(--text-soft); flex-shrink:0;}
+.bar-row .name{width:76px; color:var(--text-soft); flex-shrink:0;}
 .bar-track{flex:1; height:9px; background:var(--card-bg); border:1px solid var(--border); border-radius:5px; overflow:hidden;}
 .bar-fill{height:100%; border-radius:5px;}
 .bar-row .val{width:34px; text-align:right; font-weight:600;}
+.bar-track.pilha{display:flex;}
+.bar-track.pilha .bar-fill{border-radius:0;}
+.legenda{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12.5px; color:var(--text-soft); margin-top:4px;}
+.legenda i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px;}
+.rosca-wrap{display:flex; align-items:center; gap:28px; flex-wrap:wrap;}
+.rosca{width:160px; height:160px; border-radius:50%; display:grid; place-items:center; flex-shrink:0;}
+.rosca .miolo{width:100px; height:100px; border-radius:50%; background:var(--surface);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:12px; color:var(--text-soft);}
+.rosca .miolo b{font-size:24px; font-weight:800; color:var(--text);}
+.rosca-wrap .legenda{flex-direction:column; font-size:13.5px;}
+.rosca-wrap .legenda b{color:var(--text);}
+.rede{width:100%; max-width:520px; display:block; margin:0 auto; font-family:var(--font);}
+.rede .grade{fill:none; stroke:var(--border);}
+.rede .area{fill:var(--risk-high); fill-opacity:.15; stroke:var(--risk-high); stroke-width:2;}
+.rede circle{fill:var(--risk-high);}
+.rede circle.alvo{fill:transparent; cursor:pointer;}
+#grafico{position:relative;}
+.dica{position:absolute; transform:translate(-50%,-100%); background:var(--navy-900); color:#fff; font-size:12px;
+  padding:5px 9px; border-radius:6px; white-space:nowrap; pointer-events:none;}
+.rede text{font-size:11.5px; fill:var(--text-soft);}
+.rede text.escolhida{font-weight:700; fill:var(--accent);}
 
 .mini-list{display:flex; flex-direction:column; gap:10px;}
 .mini-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
@@ -173,9 +199,13 @@ tbody tr:last-child td{border-bottom:none;}
 .detail-row .k{color:var(--text-soft);}
 .detail-row .v{font-weight:600;}
 
+@media (max-width:1180px){
+  .nav-item svg{display:none;}  /* sem os ícones o menu ainda cabe numa linha ao lado do logo */
+  .nav-item{padding:9px 10px;}
+}
 @media (max-width:900px){
   .header-inner{flex-wrap:wrap; padding:12px 16px;}
-  nav{order:3; width:100%; justify-content:flex-start; overflow-x:auto; gap:2px;}
+  nav{order:3; flex-basis:100%; justify-content:flex-start; overflow-x:auto; gap:2px;}
   .pagehead-inner, .content{padding-left:16px; padding-right:16px;}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
   .two-col{grid-template-columns:1fr;}
@@ -186,11 +216,28 @@ tbody tr:last-child td{border-bottom:none;}
 <header>
   <div class="header-inner">
     <div class="brand">
-      <svg class="mark" viewBox="0 0 40 40" fill="none">
-        <path d="M2 20s6.5-11 18-11 18 11 18 11-6.5 11-18 11-18-11-18-11z" stroke="var(--navy-900)" stroke-width="3" stroke-linejoin="round"/>
-        <circle cx="20" cy="20" r="5.5" fill="var(--accent)"/>
+      <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <radialGradient id="globo" cx="40%" cy="35%" r="70%">
+            <stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#ECECEC"/><stop offset="1" stop-color="#B9B9B9"/>
+          </radialGradient>
+          <radialGradient id="iris" r="50%">
+            <stop offset=".35" stop-color="#7FD3FF"/><stop offset=".7" stop-color="#1E6FE0"/><stop offset="1" stop-color="#0A1E5A"/>
+          </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="46" fill="url(#globo)"/>
+        <g stroke="#D0141B" stroke-width="1.2" fill="none" stroke-linecap="round">
+          <path d="M40 8l4 9 6 2m-6-2l-3 7M62 9l-2 8 5 6m-5-6l-7 1M88 32l-9 4-3 8m3-8l7 6M92 58l-8 2-4 7m4-7l5 6M14 30l8 5 2 7m-2-7l-8 3M10 60l9-2 4 6M70 88l-4-8-7-1m7 1l2-7M30 86l5-8"/>
+        </g>
+        <g id="pupila">
+          <circle cx="50" cy="50" r="21" fill="url(#iris)" stroke="#0A1E5A" stroke-width="1.5"/>
+          <circle cx="50" cy="50" r="14" fill="none" stroke="#BDE9FF" stroke-width="8" stroke-dasharray=".5 1.6" opacity=".55"/>
+          <circle cx="50" cy="50" r="8.5" fill="#02040F"/>
+          <ellipse cx="45" cy="44" rx="3.2" ry="2.2" fill="#fff" opacity=".85"/>
+        </g>
+        <rect x="70" y="24" width="7" height="5" rx="1.5" fill="#fff" transform="rotate(35 73 26)"/>
       </svg>
-      <div class="brand-text"><h1>SIMPA</h1><p>Monitoramento e Predição Acadêmica</p></div>
+      <div class="brand-text"><h1>Espiada</h1><p>Monitoramento e Predição Acadêmica</p></div>
     </div>
     <nav>
       <button class="nav-item" data-section="meu">
@@ -241,15 +288,43 @@ tbody tr:last-child td{border-bottom:none;}
   <!-- MEU DESEMPENHO (aluno) -->
   <section class="section" id="sec-meu">
     <div class="panel ficha" id="minhaFicha"><p class="vazio">Carregando…</p></div>
+    <!-- formulário só de demonstração, não envia nada (a rota POST /api/alunos/<m>/feedback já existe) -->
+    <form class="panel" id="feedbackForm">
+      <h3>Enviar feedback</h3>
+      <div class="form-grid">
+        <label>Sobre
+          <select name="alvo"><option value="curso">O curso</option><option value="instituicao">A instituição</option></select>
+        </label>
+        <label>Avaliação
+          <select name="avaliacao_curso" required>
+            <option value="">Escolha de 1 a 5</option>
+            <option value="5">5 — Muito bom</option><option value="4">4 — Bom</option><option value="3">3 — Regular</option>
+            <option value="2">2 — Ruim</option><option value="1">1 — Muito ruim</option>
+          </select>
+        </label>
+        <label class="largo">Comentário (opcional)<textarea name="comentarios" rows="3" maxlength="500"></textarea></label>
+      </div>
+      <button class="btn">Enviar feedback</button>
+      <p class="msg" id="feedbackMsg"></p>
+    </form>
   </section>
 
   <!-- PAINEL -->
   <section class="section active" id="sec-painel">
+    <div class="filters">
+      <select id="painelTurma" aria-label="Turma"><option value="">Todas as turmas</option></select>
+      <select id="painelGrafico" aria-label="Tipo de gráfico">
+        <option value="alto">Barras — % de alto risco por turma</option>
+        <option value="empilhado">Barras empilhadas — alto, médio e baixo por turma</option>
+        <option value="rosca">Rosca — distribuição de risco</option>
+        <option value="rede">Rede — alunos com risco por turma</option>
+      </select>
+    </div>
     <div class="stat-grid" id="statGrid"></div>
     <div class="two-col">
       <div class="panel">
-        <h3>Distribuição de risco por curso</h3>
-        <div id="barsByCourse"></div>
+        <h3 id="graficoTitulo">Distribuição de risco por turma</h3>
+        <div id="grafico"></div>
       </div>
       <div class="panel">
         <h3>Alunos em risco crítico</h3>
@@ -263,7 +338,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="panel">
       <div class="filters">
         <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
-        <select id="filterCurso"><option value="">Todos os cursos</option></select>
+        <select id="filterTurma"><option value="">Todas as turmas</option></select>
         <select id="filterRisco">
           <option value="">Todos os níveis de risco</option>
           <option value="alto">Alto risco</option>
@@ -273,7 +348,7 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Aluno</th><th>Curso / Turma</th><th>Frequência</th><th>Nota média</th><th>Reprovações</th><th>Risco</th></tr></thead>
+          <thead><tr><th>Aluno</th><th>Turma</th><th>Frequência</th><th>Nota média</th><th>Reprovações</th><th>Risco</th></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -294,7 +369,6 @@ tbody tr:last-child td{border-bottom:none;}
           <span style="font-size:13px;color:var(--text-soft)" id="gaugeText"></span>
         </div>
         <div id="factorsList"></div>
-        <p class="note">O módulo de predição consome os indicadores de monitoramento pela API REST interna do SIMPA e utiliza um modelo Ollama isolado apenas para a etapa de classificação — mantendo a API principal determinística, auditável e independente do serviço de IA.</p>
       </div>
     </div>
   </section>
@@ -319,7 +393,14 @@ tbody tr:last-child td{border-bottom:none;}
 
   <!-- CONFIG -->
   <section class="section" id="sec-config">
-    <form class="panel" id="cadastroForm">
+    <div class="panel placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6"/></svg>
+      <h3>Cadastrar usuário</h3>
+      <p>Em desenvolvimento. O cadastro de usuários pela tela estará disponível em uma próxima etapa do protótipo.</p>
+    </div>
+    <!-- formulário escondido enquanto está "em desenvolvimento"; a rota POST /api/usuarios e o
+         comando flask criar-usuario continuam funcionando. Para voltar a mostrar, tire o hidden. -->
+    <form class="panel" id="cadastroForm" hidden>
       <h3>Cadastrar usuário</h3>
       <div class="form-grid">
         <label>E-mail (login)<input name="login" type="email" required></label>
@@ -344,6 +425,7 @@ tbody tr:last-child td{border-bottom:none;}
 
 <footer class="app-footer">
   <p>&copy; 2026 Espiada — SIMPA. Projeto acadêmico.</p>
+  <p><a href="https://www.stj.jus.br/sites/portalp/Leis-e-normas/lei-geral-de-protecao-de-dados-pessoais-lgpd" target="_blank" rel="noopener">LGPD — Lei nº 13.709/2018</a>.</p>
   <p><a href="sobre.html#sobre">Sobre</a> · <a href="sobre.html#equipe">Equipe</a> · <a href="sobre.html#termos">Termos de Uso</a> · <a href="sobre.html#privacidade">Privacidade (LGPD)</a> · <a href="sobre.html#cookies">Cookies</a> · <a href="sobre.html#contato">Contato</a></p>
 </footer>
 
@@ -387,6 +469,13 @@ document.getElementById("cadastroForm").addEventListener("submit", async e=>{
     e.target.reset(); cadPerfil.dispatchEvent(new Event("change"));
   }catch(err){ msg.style.color = "var(--risk-high)"; msg.textContent = err.message; }
 });
+// feedback de demonstração: só mostra a confirmação, nada vai para a API nem para o banco
+document.getElementById("feedbackForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  const msg = document.getElementById("feedbackMsg");
+  msg.style.color = "var(--risk-low)"; msg.textContent = "Feedback enviado. Obrigado pela participação!";
+  e.target.reset();
+});
 const riskLabel = {alto:"Alto",medio:"Médio",baixo:"Baixo"};
 const riskColor = {alto:"var(--risk-high)",medio:"var(--risk-med)",baixo:"var(--risk-low)"};
 
@@ -409,49 +498,133 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
   });
 });
 
-function renderStats(){
+// o painel inteiro (cards, gráfico e lista crítica) olha só para a turma escolhida no filtro
+function renderPainel(){
+  const turma = document.getElementById("painelTurma").value;
+  const lista = alunos.filter(a=>turma===""||String(a.periodo)===turma);
+  renderStats(lista); renderGrafico(lista); renderCritical(lista);
+}
+function contarRisco(lista){
   const counts = {alto:0,medio:0,baixo:0};
-  alunos.forEach(a=>counts[a.risco]++);
+  lista.forEach(a=>counts[a.risco]++);
+  return counts;
+}
+function renderStats(lista){
+  const counts = contarRisco(lista);
   document.getElementById("statGrid").innerHTML = `
-    <div class="stat-card"><div class="lbl">Total monitorados</div><div class="num">${alunos.length}</div></div>
+    <div class="stat-card"><div class="lbl">Total monitorados</div><div class="num">${lista.length}</div></div>
     <div class="stat-card high"><div class="lbl">Alto risco</div><div class="num">${counts.alto}</div></div>
     <div class="stat-card med"><div class="lbl">Médio risco</div><div class="num">${counts.medio}</div></div>
     <div class="stat-card low"><div class="lbl">Baixo risco</div><div class="num">${counts.baixo}</div></div>`;
 }
-function renderBars(){
-  const cursos = [...new Set(alunos.map(a=>a.curso))];
-  const el = document.getElementById("barsByCourse");
-  if(cursos.length===0){ el.innerHTML = `<p style="font-size:13px;color:var(--text-soft)">Nenhum dado de curso disponível ainda.</p>`; return; }
-  el.innerHTML = cursos.map(c=>{
-    const list = alunos.filter(a=>a.curso===c);
-    const alto = list.filter(a=>a.risco==="alto").length;
-    const pct = Math.round((alto/list.length)*100);
-    return `<div class="bar-row"><span class="name">${c.split(" ")[0]}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--risk-high)"></div></div>
-      <span class="val">${pct}%</span></div>`;
-  }).join("");
+const legendaRisco = () => `<div class="legenda">${Object.keys(riskLabel).map(r=>
+  `<span><i style="background:${riskColor[r]}"></i>${riskLabel[r]}</span>`).join("")}</div>`;
+function renderGrafico(lista){
+  const tipo = document.getElementById("painelGrafico").value;
+  const el = document.getElementById("grafico");
+  document.getElementById("graficoTitulo").textContent =
+    tipo==="rosca" ? "Distribuição de risco" : "Distribuição de risco por turma";
+  if(lista.length===0){ el.innerHTML = `<p style="font-size:13px;color:var(--text-soft)">Nenhum dado de turma disponível ainda.</p>`; return; }
+  if(tipo==="rede"){ el.innerHTML = graficoRede(); return; }
+  if(tipo==="rosca"){
+    const counts = contarRisco(lista);
+    let ini = 0;  // cada fatia começa onde a anterior terminou
+    const fatias = Object.keys(counts).map(r=>{
+      const fim = ini + counts[r]/lista.length*100;
+      const f = `${riskColor[r]} ${ini}% ${fim}%`; ini = fim; return f;
+    });
+    el.innerHTML = `<div class="rosca-wrap">
+      <div class="rosca" role="img" aria-label="Alto ${counts.alto}, médio ${counts.medio}, baixo ${counts.baixo}"
+        style="background:conic-gradient(${fatias.join(",")})"><div class="miolo"><b>${lista.length}</b>alunos</div></div>
+      <div class="legenda">${Object.keys(counts).map(r=>`<span><i style="background:${riskColor[r]}"></i>${riskLabel[r]}:
+        <b>${counts[r]}</b> (${Math.round(counts[r]/lista.length*100)}%)</span>`).join("")}</div></div>`;
+    return;
+  }
+  // cada turma é a leva de alunos que cursa o mesmo período junta
+  const turmas = [...new Set(lista.map(a=>a.periodo))].sort((a,b)=>a-b);
+  el.innerHTML = turmas.map(t=>{
+    const daTurma = lista.filter(a=>a.periodo===t);
+    const counts = contarRisco(daTurma);
+    const pct = r => Math.round(counts[r]/daTurma.length*100);
+    const barra = tipo==="empilhado"
+      ? `<div class="bar-track pilha">${Object.keys(counts).map(r=>
+          `<div class="bar-fill" style="width:${counts[r]/daTurma.length*100}%;background:${riskColor[r]}" title="${riskLabel[r]}: ${counts[r]}"></div>`).join("")}</div>
+         <span class="val">${daTurma.length}</span>`
+      : `<div class="bar-track"><div class="bar-fill" style="width:${pct("alto")}%;background:var(--risk-high)"></div></div>
+         <span class="val">${pct("alto")}%</span>`;
+    return `<div class="bar-row"><span class="name">${t}º período</span>${barra}</div>`;
+  }).join("") + (tipo==="empilhado" ? legendaRisco() : "");
 }
-function renderCritical(){
-  const top = alunos.filter(a=>a.risco==="alto").sort((a,b)=>a.freq-b.freq).slice(0,5);
+// gráfico em rede (radar): um eixo por turma, com quantos alunos estão com risco (alto ou médio).
+// Mostra sempre todas as turmas (comparar é o objetivo); a escolhida no filtro fica destacada.
+function graficoRede(){
+  const turmas = [...new Set(alunos.map(a=>a.periodo))].sort((a,b)=>a-b);
+  const escolhida = document.getElementById("painelTurma").value;
+  const comRisco = turmas.map(t=>alunos.filter(a=>a.periodo===t && a.risco!=="baixo").length);
+  const max = Math.max(1, ...comRisco);  // a turma com mais alunos em risco encosta na borda
+  const cx=260, cy=150, R=105;
+  const ponto = (i,frac) => { const ang = -Math.PI/2 + i*2*Math.PI/turmas.length;
+    return [cx+Math.cos(ang)*R*frac, cy+Math.sin(ang)*R*frac]; };
+  const poligono = fracs => fracs.map((f,i)=>ponto(i,f).join(",")).join(" ");
+  const grade = [.25,.5,.75,1].map(f=>`<polygon class="grade" points="${poligono(turmas.map(()=>f))}"/>`).join("")
+    + turmas.map((_,i)=>`<line class="grade" x1="${cx}" y1="${cy}" x2="${ponto(i,1)[0]}" y2="${ponto(i,1)[1]}"/>`).join("");
+  const rotulos = turmas.map((t,i)=>{
+    const [x,y] = ponto(i,1.15), anc = Math.abs(x-cx)<5 ? "middle" : x>cx ? "start" : "end";
+    return `<text x="${x}" y="${y}" text-anchor="${anc}" dominant-baseline="middle"
+      class="${String(t)===escolhida?"escolhida":""}">${t}º período</text>`;
+  }).join("");
+  const v = comRisco.map(n=>n/max);
+  const area = `<polygon class="area" points="${poligono(v)}"/>`
+    + v.map((f,i)=>`<circle r="3" cx="${ponto(i,f)[0]}" cy="${ponto(i,f)[1]}"/>`).join("")
+    // círculo invisível maior em cada ponto: o de 3px é pequeno demais para acertar com o mouse
+    + v.map((f,i)=>`<circle class="alvo" r="14" cx="${ponto(i,f)[0]}" cy="${ponto(i,f)[1]}"
+        data-dica="${turmas[i]}º período: ${comRisco[i]} alunos com risco"/>`).join("");
+  const resumo = turmas.map((t,i)=>`${t}º período: ${comRisco[i]} alunos com risco`).join("; ");
+  return `<svg class="rede" viewBox="0 0 520 300" role="img" aria-label="${resumo}">${grade}${area}${rotulos}</svg>
+    <div class="dica" hidden></div>`;
+}
+// balão do gráfico em rede: aparece ao passar o mouse num ponto
+const grafico = document.getElementById("grafico");
+grafico.addEventListener("mouseover", e=>{
+  const dica = grafico.querySelector(".dica");
+  if(!dica || !e.target.dataset.dica) return;
+  const p = e.target.getBoundingClientRect(), g = grafico.getBoundingClientRect();
+  dica.textContent = e.target.dataset.dica;
+  dica.style.left = (p.left + p.width/2 - g.left) + "px";
+  dica.style.top = (p.top - g.top) + "px";
+  dica.hidden = false;
+});
+grafico.addEventListener("mouseout", e=>{ if(e.target.dataset.dica) grafico.querySelector(".dica").hidden = true; });
+
+// a íris do logo segue o mouse, sem sair do globo do olho (igual ao login)
+const pupila = document.getElementById('pupila');
+addEventListener('mousemove', e => {
+  const r = pupila.ownerSVGElement.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 150);  // perto do logo = move menos
+  pupila.style.transform = `translate(${dx / d * k * 15}px, ${dy / d * k * 15}px)`;
+});
+function renderCritical(lista){
+  const top = lista.filter(a=>a.risco==="alto").sort((a,b)=>a.freq-b.freq).slice(0,5);
   const el = document.getElementById("criticalList");
   el.innerHTML = top.length ? top.map(a=>`
-    <div class="mini-row"><div><div class="who">${a.nome}</div><div class="meta">${a.curso}</div></div>
+    <div class="mini-row"><div><div class="who">${a.nome}</div><div class="meta">${a.periodo}º período</div></div>
     <span class="badge alto">${a.freq??"—"}% freq.</span></div>`).join("")
     : `<p style="font-size:13px;color:var(--text-soft)">Nenhum aluno em risco crítico no momento.</p>`;
 }
 function renderTable(){
   const search = document.getElementById("searchInput").value.toLowerCase();
-  const curso = document.getElementById("filterCurso").value;
+  const turma = document.getElementById("filterTurma").value;
   const risco = document.getElementById("filterRisco").value;
   const rows = alunos.filter(a=>
     a.nome.toLowerCase().includes(search) &&
-    (curso===""||a.curso===curso) &&
+    (turma===""||String(a.periodo)===turma) &&
     (risco===""||a.risco===risco)
   );
   document.getElementById("tableBody").innerHTML = rows.map(a=>`
     <tr data-idx="${alunos.indexOf(a)}">
       <td>${a.nome}</td>
-      <td>${a.curso}<br><span style="color:var(--text-soft);font-size:12px">${a.turma??""}</span></td>
+      <td>${a.periodo}º período</td>
       <td>${a.freq??"—"}%</td>
       <td>${a.nota==null?"—":a.nota.toFixed(1)}</td>
       <td>${a.reprovacoes}</td>
@@ -461,10 +634,9 @@ function renderTable(){
     tr.addEventListener("click",()=>openModal(alunos[tr.dataset.idx]));
   });
 }
-function fillFilterCurso(){
-  const sel = document.getElementById("filterCurso");
-  [...new Set(alunos.map(a=>a.curso))].forEach(c=>{
-    const o = document.createElement("option"); o.value=c; o.textContent=c; sel.appendChild(o);
+function fillFilterTurma(){
+  [...new Set(alunos.map(a=>a.periodo))].sort((a,b)=>a-b).forEach(t=>{
+    ["filterTurma","painelTurma"].forEach(id=>document.getElementById(id).add(new Option(`${t}º período`, t)));
   });
 }
 function fillPredictSelect(){
@@ -565,13 +737,14 @@ Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   document.querySelectorAll(".nav-item").forEach(b=>{ if(!SECOES[perfil].includes(b.dataset.section)) b.remove(); });
   document.querySelector(".nav-item").click();  // abre a primeira aba do perfil
   alunos.push(...lista);
-  renderStats(); renderBars(); renderCritical(); fillFilterCurso(); fillPredictSelect(); renderTable();
+  fillFilterTurma(); renderPainel(); fillPredictSelect(); renderTable();
   if(perfil==="aluno") mostrarFicha(lista[0].matricula, document.getElementById("minhaFicha"));  // aluno só recebe ele mesmo
 });
-["searchInput","filterCurso","filterRisco"].forEach(id=>{
+["searchInput","filterTurma","filterRisco"].forEach(id=>{
   document.getElementById(id).addEventListener("input",renderTable);
   document.getElementById(id).addEventListener("change",renderTable);
 });
+["painelTurma","painelGrafico"].forEach(id=>document.getElementById(id).addEventListener("change",renderPainel));
 </script>
 </body>
 </html>

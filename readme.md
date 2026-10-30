@@ -9,7 +9,7 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 | Back-end | Python 3.10+ com Flask |
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
 | Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
-| Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`) |
+| Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`); gráficos feitos à mão em CSS e SVG, sem biblioteca |
 | Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
 
 ## Arquitetura (MVC)
@@ -38,6 +38,24 @@ src/
 ```
 
 Uma requisição passa assim: a **view** (JavaScript da tela) chama a API → o **controller** confere login e perfil → o **model** consulta ou grava no banco e aplica a regra → o controller devolve JSON → a view desenha.
+
+## Telas
+
+| Tela | Quem vê | O que tem |
+|---|---|---|
+| Login (`/`) | todos | e-mail e senha; o olho do logo segue o mouse |
+| **Painel geral** | professor, secretaria | cards com total e alunos em alto, médio e baixo risco; lista dos alunos em risco crítico; **filtro por turma** (vale para o painel inteiro) e **4 tipos de gráfico**: barras (% de alto risco por turma), barras empilhadas (alto, médio e baixo por turma), rosca (distribuição geral) e rede/radar (alunos com risco por turma, passando o mouse mostra a quantidade) |
+| Monitoramento | professor, secretaria | tabela de alunos com turma, frequência, nota, reprovações e risco; busca por nome e filtros por turma e por risco; clicar no aluno abre a ficha |
+| Predições | professor, secretaria | gera a classificação de risco de um aluno e mostra os fatores |
+| Meu desempenho | aluno | a própria ficha (disciplinas, notas, frequência, histórico de risco) e o formulário **Enviar feedback** |
+| Config. | secretaria | cadastro de usuários **em desenvolvimento** (formulário escondido; por enquanto o cadastro é pelo terminal ou pela API) |
+| Sobre (`/sobre.html`) | todos, sem login | abas Sobre, Equipe, Termos de Uso, Privacidade (LGPD), Cookies e Contato |
+
+**Turma** = alunos que estão no mesmo período (`periodo_atual` da matrícula). No dataset cada período tem uma única turma de 15 alunos que entraram juntos (ex.: ingresso 2025.1 = 4º período), então turma, período e ano de ingresso dão o mesmo agrupamento.
+
+**Feedback (demonstração):** o formulário do aluno só mostra a confirmação na tela; ele **não** chama a API nem grava no banco. A rota `POST /api/alunos/{matricula}/feedback` já existe e funciona, falta só ligar o formulário a ela.
+
+**Rodapé:** todas as telas têm o aviso de direitos autorais, o link para o texto da LGPD (Lei nº 13.709/2018, no site do STJ) e os links para as abas da página Sobre.
 
 ## Banco de dados
 
@@ -101,10 +119,10 @@ Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`ac
 | Login | Senha | Perfil | Ligado a |
 |---|---|---|---|
 | `secretaria@simpa.test` | `Secretaria#2026` | secretaria | — (vê os 120 alunos) |
-| `professor@simpa.test` | `Professor#2026` | professor | Docente Ada (`docente_id` 1, vê 78 alunos) |
+| `professor@simpa.test` | `Professor#2026` | professor | Professor (`docente_id` 1, vê 78 alunos) |
 | `aluno@simpa.test` | `Aluno#2026` | aluno | Estudante Sintético 001 (`AES0001`) |
 
-São só para teste: fora do ambiente da turma, troque as senhas. Outros usuários são cadastrados pela secretaria na aba **Config.** do painel, ou pelo terminal (pede a senha duas vezes):
+São só para teste: fora do ambiente da turma, troque as senhas. Outros usuários são cadastrados pelo terminal (pede a senha duas vezes) ou pela rota `POST /api/usuarios`; a tela de cadastro na aba **Config.** está em desenvolvimento:
 
 ```bash
 flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "Fulano" --vinculo 2
@@ -174,7 +192,7 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    pip install -r requirements.txt
    ```
-   A única dependência externa é o **Flask**, que já instala junto Werkzeug, Jinja2, MarkupSafe, ItsDangerous, Click e Blinker. O `sqlite3` já vem com o Python.
+   As dependências são o **Flask** e duas bibliotecas que o código importa direto: **Werkzeug** (hash de senha, erros HTTP) e **Click** (comando `criar-usuario`). As duas já viriam junto com o Flask, mas ficam listadas porque o projeto usa elas diretamente. O `sqlite3` já vem com o Python e nenhuma biblioteca de gráficos é necessária.
 4. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
    ```bash
    python src/importar.py
@@ -221,7 +239,7 @@ flowchart TD
     B -->|sim| C{"Perfil do usuário"}
     C -->|aluno| AL["Próprio desempenho<br/>enviar feedback"]
     C -->|professor| PR["Alunos das turmas que leciona<br/>gera predição, não altera dados"]
-    C -->|secretaria| SE["Visão de todos os cursos<br/>predição, cadastro de usuários"]
+    C -->|secretaria| SE["Visão de todas as turmas<br/>predição, cadastro de usuários"]
 ```
 
 ### Predição de risco

@@ -19,20 +19,20 @@ ORDEM = ["cursos", "periodos_curriculares", "disciplinas", "cidades", "docentes"
 # login, perfil, senha, vínculo (matrícula do aluno / docente_id). Troque as senhas fora do ambiente de teste.
 LOGINS_PADRAO = [
     ("secretaria@simpa.test", "secretaria", "Secretaria#2026", None),
-    ("professor@simpa.test", "professor", "Professor#2026", 1),  # Docente Ada
+    ("professor@simpa.test", "professor", "Professor#2026", 1),  # vinculado ao docente_id 1
     ("aluno@simpa.test", "aluno", "Aluno#2026", "AES0001"),
 ]
 
 
 def criar_logins_padrao(con):
-    """Grava os LOGINS_PADRAO que ainda não existem (o nome vem do dataset)."""
+    """Grava os LOGINS_PADRAO que ainda não existem (secretaria e professor com nome genérico, aluno com o do dataset)."""
     for login, perfil, senha, vinculo in LOGINS_PADRAO:
         hash_ = generate_password_hash(senha)
         if perfil == "secretaria":
             con.execute("INSERT OR IGNORE INTO usuario VALUES (?, 'secretaria', 'Secretaria', ?, NULL, NULL)",
                         (login, hash_))
         elif perfil == "professor":
-            con.execute("""INSERT OR IGNORE INTO usuario SELECT ?, 'professor', nome_sintetico, ?, NULL, docente_id
+            con.execute("""INSERT OR IGNORE INTO usuario SELECT ?, 'professor', 'Professor', ?, NULL, docente_id
                              FROM docentes WHERE docente_id = ?""", (login, hash_, vinculo))
         else:
             con.execute("""INSERT OR IGNORE INTO usuario SELECT ?, 'aluno', nome_sintetico, ?, aluno_id, NULL

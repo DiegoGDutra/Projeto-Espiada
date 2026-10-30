@@ -1,7 +1,7 @@
 """Risco de evasão: as regras do cálculo e o histórico de predições (tabela predicao_ia)."""
 from models.banco import consultar, transacao
 
-# ponytail: pesos fixos (os do readme); semana 05 deixa configurável e soma a LLM (semana 06)
+# pesos fixos (os do readme); semana 05 deixa configurável e soma a LLM (semana 06)
 REGRAS = [
     ("freq", lambda v: v < 75, 2, "Frequência abaixo de 75%"),
     ("nota", lambda v: v < 60, 2, "Nota média abaixo de 60"),
