@@ -284,6 +284,24 @@ erDiagram
     docentes |o--o| usuario : "loga como"
 ```
 
+**Como ler as ligações:**
+
+| Símbolo na ponta | Significa |
+|---|---|
+| `\|\|` (dois traços) | exatamente um |
+| `o\|` (círculo e traço) | zero ou um |
+| `o{` (círculo e pé de galinha) | zero ou muitos |
+
+Exemplo: `cursos ||--o{ periodos_curriculares` quer dizer que um curso tem zero ou muitos períodos e cada período pertence a exatamente um curso (1:N).
+
+Relações N:N não aparecem como uma linha direta: elas passam por uma tabela intermediária.
+
+| Relação N:N | Tabela intermediária |
+|---|---|
+| alunos ↔ cursos | `matriculas_curso` |
+| alunos ↔ tipos_bolsa | `bolsas_alunos` |
+| matriculas_curso ↔ turmas | `registros_academicos` |
+
 ### Como os indicadores são calculados
 
 - `freq` = média de `frequencia_percentual` nos registros acadêmicos do aluno
