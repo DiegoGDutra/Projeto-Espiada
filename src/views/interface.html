@@ -170,6 +170,8 @@ tbody tr:last-child td{border-bottom:none;}
 .predict-box select{border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:var(--font); font-size:13.5px; background:#fff; color:var(--text); min-width:220px;}
 .btn{background:var(--accent); color:#fff; border:none; border-radius:8px; padding:10px 18px; font-family:var(--font); font-size:13.5px; font-weight:600; cursor:pointer;}
 .btn:hover{filter:brightness(.94);}
+.btn.sec{background:#fff; color:var(--accent); border:1px solid var(--accent); padding:9px 17px;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
 .predict-result{display:none;}
 .predict-result.show{display:block;}
 .gauge-row{display:flex; align-items:center; gap:16px; margin-bottom:16px;}
@@ -361,7 +363,8 @@ tbody tr:last-child td{border-bottom:none;}
       <h3>Gerar predição individual</h3>
       <div class="predict-box">
         <select id="predictSelect"></select>
-        <button class="btn" id="predictBtn">Gerar predição</button>
+        <button class="btn prever" data-llm="1">Predição com LLM</button>
+        <button class="btn sec prever" data-llm="0">Predição só com regras</button>
       </div>
       <div class="predict-result" id="predictResult">
         <div class="gauge-row">
@@ -644,9 +647,7 @@ function fillPredictSelect(){
   if(alunos.length===0){
     sel.innerHTML = `<option value="">Nenhum aluno cadastrado</option>`;
     sel.disabled = true;
-    document.getElementById("predictBtn").disabled = true;
-    document.getElementById("predictBtn").style.opacity = ".5";
-    document.getElementById("predictBtn").style.cursor = "not-allowed";
+    document.querySelectorAll("#sec-predicoes .prever").forEach(b => b.disabled = true);
     return;
   }
   alunos.forEach((a,i)=>{
@@ -658,9 +659,23 @@ let perfil = null;
 const fmt = v => v==null ? "—" : Number(v).toFixed(1);
 const SITUACAO = {APROVADO:["Aprovado","baixo"], EM_CURSO:["Em curso","neutro"],
   REPROVADO_NOTA:["Reprovado por nota","alto"], REPROVADO_FREQUENCIA:["Reprovado por frequência","alto"]};
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);  // texto da LLM não vira HTML
+// regras x LLM lado a lado, o comentário da LLM e o aviso quando ela não respondeu
+const resumoIA = r => `
+  <div class="factor"><span>Só regras (pontuação ${r.score})</span><span class="badge ${r.risco_regras}">${riskLabel[r.risco_regras]}</span></div>
+  <div class="factor"><span>Com LLM${r.modelo ? ` (${esc(r.modelo)})` : ""}</span>${r.risco_ia
+    ? `<span class="badge ${r.risco_ia}">${riskLabel[r.risco_ia]}</span>` : `<span class="vazio">${r.aviso ? "indisponível" : "não usada"}</span>`}</div>
+  ${r.comentario ? `<p style="font-size:13px;margin:10px 0">${esc(r.comentario)}</p>` : ""}
+  ${r.aviso ? `<p class="erro-msg">${esc(r.aviso)}</p>` : ""}`;
+async function gerarPredicao(matricula, botao){
+  const botoes = botao.parentElement.querySelectorAll(".prever"), texto = botao.textContent;
+  botoes.forEach(b => b.disabled = true); botao.textContent = "Gerando…";
+  try{ return await api(`/api/alunos/${matricula}/predicao?llm=${botao.dataset.llm}`,{method:"POST"}); }
+  finally{ botoes.forEach(b => b.disabled = false); botao.textContent = texto; }
+}
 const quando = t => new Date(t.replace(" ","T")+"Z").toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});  // banco grava em UTC
 
-async function mostrarFicha(matricula, el, fatores=null){
+async function mostrarFicha(matricula, el, novo=null){
   el.innerHTML = `<p class="vazio">Carregando…</p>`;
   try{
     const [a, hist] = await Promise.all([api(`/api/alunos/${matricula}`), api(`/api/alunos/${matricula}/predicao`)]);
@@ -677,12 +692,14 @@ async function mostrarFicha(matricula, el, fatores=null){
         <div class="stat-card"><div class="lbl">Distância do campus</div><div class="num">${a.distancia==null?"—":a.distancia+" km"}</div></div>
       </div>
       <h4>Histórico de risco</h4>
-      ${perfil!=="aluno" ? `<button class="btn" id="fichaPrever">Gerar predição</button>` : ""}
-      ${fatores ? `<div style="margin-top:10px">${fatores.map(f=>`
+      ${perfil!=="aluno" ? `<div class="predict-box"><button class="btn prever" data-llm="1">Predição com LLM</button>
+        <button class="btn sec prever" data-llm="0">Predição só com regras</button></div>` : ""}
+      ${novo ? `<div style="margin-top:10px">${resumoIA(novo)}${novo.fatores.map(f=>`
         <div class="factor"><span>${f.descricao}</span><span class="tag ${f.negativo?"neg":"ok"}">${f.negativo?"Fator de risco":"Regular"}</span></div>`).join("")}</div>` : ""}
       <div style="margin-top:8px">${hist.length ? hist.map(h=>`
         <div class="hist-row"><span>${quando(h.criado_em)}</span>
-          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"}</span></span></div>`).join("")
+          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"}</span></span></div>
+        ${h.comentario_predicao ? `<p class="vazio" style="margin:0 0 8px">${esc(h.comentario_predicao)}</p>` : ""}`).join("")
         : `<p class="vazio">Nenhuma predição gerada ainda.</p>`}</div>
       ${semestres.map(sem=>`
         <h4>Semestre ${sem}</h4>
@@ -695,12 +712,10 @@ async function mostrarFicha(matricula, el, fatores=null){
               <td><b>${fmt(d.nota_final ?? d.nota_parcial)}</b></td><td>${d.frequencia_percentual==null?"—":d.frequencia_percentual+"%"}</td>
               <td><span class="badge ${cor}">${txt}</span></td></tr>`;}).join("")}</tbody>
         </table></div>`).join("") || `<h4>Disciplinas</h4><p class="vazio">Nenhuma disciplina registrada.</p>`}`;
-    const prever = el.querySelector("#fichaPrever");
-    if(prever) prever.addEventListener("click", async ()=>{
-      prever.disabled = true; prever.textContent = "Gerando…";
-      try{ const r = await api(`/api/alunos/${matricula}/predicao`,{method:"POST"}); mostrarFicha(matricula, el, r.fatores); }
-      catch(err){ prever.disabled = false; prever.textContent = "Gerar predição"; prever.insertAdjacentHTML("afterend", `<p class="erro-msg">${err.message}</p>`); }
-    });
+    el.querySelectorAll(".prever").forEach(b => b.addEventListener("click", async ()=>{
+      try{ mostrarFicha(matricula, el, await gerarPredicao(matricula, b)); }
+      catch(err){ b.parentElement.insertAdjacentHTML("afterend", `<p class="erro-msg">${esc(err.message)}</p>`); }
+    }));
   }catch(err){ el.innerHTML = `<p class="erro-msg">${err.message}</p>`; }
 }
 
@@ -716,19 +731,20 @@ function closeModal(){ document.getElementById("overlay").classList.remove("show
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
-document.getElementById("predictBtn").addEventListener("click",async ()=>{
+document.querySelectorAll("#sec-predicoes .prever").forEach(btn => btn.addEventListener("click",async ()=>{
   if(alunos.length===0){ return; }
   const a = alunos[document.getElementById("predictSelect").value];
-  const {risco, fatores} = await api(`/api/alunos/${a.matricula}/predicao`,{method:"POST"});
+  const r = await gerarPredicao(a.matricula, btn);
+  const {risco, fatores} = r;
   const badge = document.getElementById("gaugeBadge");
   badge.textContent = riskLabel[risco]+" risco";
   badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
   badge.style.color = riskColor[risco];
   document.getElementById("gaugeText").textContent = "Classificação para "+a.nome;
-  document.getElementById("factorsList").innerHTML = fatores.map(({descricao:label,negativo:neg})=>`
+  document.getElementById("factorsList").innerHTML = resumoIA(r) + fatores.map(({descricao:label,negativo:neg})=>`
     <div class="factor"><span>${label}</span><span class="tag ${neg?'neg':'ok'}">${neg?'Fator de risco':'Regular'}</span></div>`).join("");
   document.getElementById("predictResult").classList.add("show");
-});
+}));
 
 Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   perfil = eu.perfil;

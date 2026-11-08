@@ -1,5 +1,5 @@
 """Rotas de alunos: lista, ficha, feedback e predição de risco. Cada perfil só alcança os alunos que pode ver."""
-from flask import Blueprint, abort, jsonify, session
+from flask import Blueprint, abort, jsonify, request, session
 
 from controllers.comum import exige, ler_json, negar
 from models import alunos, feedback, predicao
@@ -42,7 +42,9 @@ def registrar_feedback(matricula):
 @bp.post("/api/alunos/<matricula>/predicao")
 def gerar_predicao(matricula):
     exige("professor", "secretaria")  # aluno só consulta
-    resultado = predicao.calcular_risco(aluno_visivel(matricula))
+    usar_llm = request.args.get("llm") != "0"  # ?llm=0: só as regras
+    resultado = predicao.prever(aluno_visivel(matricula), alunos.disciplinas(matricula), feedback.do_aluno(matricula),
+                                usar_llm)
     predicao.salvar(matricula, resultado)
     return jsonify({"matricula": matricula} | resultado), 201
 

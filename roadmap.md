@@ -28,7 +28,7 @@
 | Cálculo de risco por regras | 60% | `calcular_risco()` com frequência, nota, reprovações, reclamações e distância; níveis baixo/médio/alto |Melhor análise e testes de peso dos parâmetros tanto com llm, tanto sem. Fazer com que o sistema mostre os dois tipos de cálculo, com e sem llm|
 | Alto risco só com histórico mínimo | 0% | — | Exigir um mínimo de registros antes de classificar como "alto", pois pode ser tanto como um aluno sem nota ou que foi matriculado recentemente (aplicação real que precisa de análise de dados com o tempo) |
 | Pesos configuráveis | 0% | Pesos fixos na lista `REGRAS` de `src/models/predicao.py` | Guardar os pesos no banco, criar rota e tela para editar |
-| Predição com LLM (Ollama) | 20% | Aba Predições, rota `POST /api/alunos/{matricula}/predicao` e histórico em `predicao_ia` (só com as regras) | Integrar a LLM do Ollama (≥ 7B) com o contexto do aluno |
+| Predição com LLM (Ollama) | 70% | `qwen3:4b` local avalia notas, frequência, reprovações e comentários; tela mostra risco só com regras e com LLM lado a lado, comentário da LLM vai para o histórico; sem Ollama cai só nas regras | Comparar os dois cálculos com `desfechos_alunos` para ver qual acerta mais |
 | Recálculo das predições | 10% | Predição gerada à mão, um aluno por vez | Recalcular todos quando chegarem dados novos; 1000 alunos em até 5 min |
 | Alteração manual de predição | 20% | Colunas `alterada_por` e `justificativa` com `CHECK` exigindo justificativa | Rota e tela; só secretaria ou o professor da turma pode alterar |
 

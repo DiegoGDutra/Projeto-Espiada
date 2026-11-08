@@ -9,3 +9,9 @@ def registrar(matricula, alvo, comentarios=None, avaliacao_curso=None):
             SELECT aluno_id, ?, ?, ? FROM alunos WHERE codigo_academico = ?""",
             (alvo, comentarios, avaliacao_curso, matricula)).lastrowid
     return consultar("SELECT * FROM feedback WHERE feedback_id = ?", novo_id)[0]
+
+
+def do_aluno(matricula):
+    return consultar("""SELECT f.alvo, f.comentarios, f.avaliacao_curso, f.criado_em FROM feedback f
+                         JOIN alunos a USING (aluno_id) WHERE a.codigo_academico = ? ORDER BY f.feedback_id""",
+                     matricula)

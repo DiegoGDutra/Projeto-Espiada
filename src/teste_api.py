@@ -5,10 +5,11 @@ from pathlib import Path
 
 import Espiada
 from importar import LOGINS_PADRAO, importar
-from models import banco
+from models import banco, predicao
 from models.predicao import calcular_risco
 
 banco.BANCO = Path(tempfile.mkdtemp()) / "teste.db"  # não mexe no funcionaai.db
+predicao.OLLAMA_HOST = "http://127.0.0.1:9"  # porta fechada: teste não depende da LLM e roda rápido
 qtd = importar(banco.BANCO)
 assert (qtd["alunos"], qtd["registros_academicos"], qtd["turmas"], qtd["usuario"]) == (120, 2949, 320, 3), qtd
 api = Espiada.app.test_client()
@@ -58,7 +59,11 @@ a = chama("GET", "/api/alunos/AES0001")
 assert a["matricula"] == "AES0001" and a["curso"] == "Engenharia de Software" and a["reclamacoes"] == 0, a
 assert a["disciplinas"] and all(0 <= d["nota_n1"] <= 100 for d in a["disciplinas"])
 p = chama("POST", "/api/alunos/AES0001/predicao", status=201)
-assert p == {"matricula": "AES0001"} | calcular_risco(chama("GET", "/api/alunos/AES0001")), p
+regras = calcular_risco(chama("GET", "/api/alunos/AES0001"))
+assert {k: p[k] for k in regras} == regras and p["risco_regras"] == regras["risco"], p
+assert p["risco_ia"] is None and "LLM indisponível" in p["aviso"], p  # Ollama fora: cai só nas regras
+p = chama("POST", "/api/alunos/AES0001/predicao?llm=0", status=201)  # só regras: nem tenta a LLM
+assert p["risco"] == regras["risco"] and p["aviso"] is None and p["modelo"] is None, p
 assert chama("GET", "/api/alunos/AES0001/predicao")[0]["risco"] == p["risco"]
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso"}, 403)  # feedback é do aluno
 assert "erro" in chama("GET", "/api/alunos/XYZ", status=404)

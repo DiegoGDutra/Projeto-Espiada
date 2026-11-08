@@ -10,7 +10,7 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
 | Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
 | Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`); gráficos feitos à mão em CSS e SVG, sem biblioteca |
-| Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
+| Predição | regras fixas + LLM local no Ollama (`qwen3:4b`; os dados dos alunos não saem da máquina). Antes de subir: `ollama serve` e `ollama pull qwen3:4b`. Outro modelo: variável `OLLAMA_MODELO` |
 
 ## Arquitetura (MVC)
 
@@ -143,7 +143,7 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 | GET | `/api/alunos` | — | lista de resumos do aluno (abaixo) |
 | GET | `/api/alunos/{matricula}` | — | resumo + `disciplinas` (notas e frequência por turma e tentativa) |
 | POST | `/api/alunos/{matricula}/feedback` | **alvo** (`curso` ou `instituicao`), comentarios, avaliacao_curso (1–5) | o feedback registrado |
-| POST | `/api/alunos/{matricula}/predicao` | — | `{matricula, risco, score, fatores}` e grava no histórico |
+| POST | `/api/alunos/{matricula}/predicao` | `?llm=0` para usar só as regras | `{matricula, risco, score, fatores, risco_regras, risco_ia, comentario, modelo, aviso}` e grava no histórico |
 | GET | `/api/alunos/{matricula}/predicao` | — | histórico de predições, da mais nova para a mais antiga |
 
 `{matricula}` é o `codigo_academico` do aluno (ex.: `AES0001`). Não existe rota para criar ou alterar nota e frequência: elas vêm só do importador.
@@ -163,9 +163,13 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 ```json
 {
   "matricula": "AES0001", "risco": "alto", "score": 7,
-  "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": true}]
+  "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": true}],
+  "risco_regras": "alto", "risco_ia": "alto", "modelo": "qwen3:4b",
+  "comentario": "Frequência baixa e reprovações repetidas...", "aviso": null
 }
 ```
+
+`risco` é o da LLM (`risco_ia`); `score` e `fatores` são sempre das regras. Se o Ollama não responder, `risco_ia` vem `null`, `risco` fica igual a `risco_regras` e `aviso` explica o motivo. Para a LLM vão só matrícula, indicadores, disciplinas e comentários do aluno (sem nome nem endereço).
 
 **Erro:**
 
@@ -220,7 +224,7 @@ flowchart LR
         API --> CALC
     end
     API <--> DB[("SQLite<br/>funcionaai.db")]
-    CALC <-->|contexto do aluno| LLM["LLM Ollama<br/>(nuvem)"]
+    CALC <-->|contexto do aluno| LLM["LLM Ollama<br/>(local, qwen3:4b)"]
     CALC -->|grava predição| DB
     CALC -->|alto risco| NOTIF["WhatsApp / Telegram<br/>coordenação"]
     U["Usuário<br/>aluno, professor, secretaria"] -->|login.html| API
