@@ -10,7 +10,7 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
 | Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
 | Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`); gráficos feitos à mão em CSS e SVG, sem biblioteca |
-| Predição (semana 06) | LLM em nuvem do Ollama (≥ 7B parâmetros) |
+| Predição (semana 06) | LLM **local** do Ollama (`qwen3:8b`, 8 bilhões de parâmetros), sem chat: o prompt é fixo e a resposta é um JSON validado. Instalação e uso em [`LLM.md`](LLM.md) |
 
 ## Arquitetura (MVC)
 
@@ -22,7 +22,8 @@ src/
 │   ├── usuario.py        cadastro com validação de e-mail/senha, autenticação
 │   ├── academico.py      cursos, disciplinas, docentes, turmas (só leitura)
 │   ├── alunos.py         resumo com indicadores, ficha, quem pode ver quem
-│   ├── predicao.py       regras e cálculo do risco, histórico de predições
+│   ├── predicao.py       regras e cálculo do risco, regras duras, opinião da LLM, recálculo em lote, histórico
+│   ├── llm.py            cliente do Ollama: prompt fixo, resposta em JSON validada, 503/502 se falhar
 │   └── feedback.py       comentários do aluno
 ├── views/              V — telas: login.html, interface.html, sobre.html (sobre, equipe, termos, LGPD, cookies)
 ├── static/fontes/      arquivos do front (fonte Inter + licença)
@@ -31,10 +32,11 @@ src/
 │   ├── auth.py           /api/login, /api/logout, /api/sessao, /api/usuarios, comando criar-usuario
 │   ├── paginas.py        /, /interface.html, /sobre.html
 │   ├── academico.py      /api/cursos, /api/disciplinas, /api/docentes, /api/turmas
-│   └── alunos.py         /api/alunos/... (lista, ficha, feedback, predição)
+│   ├── alunos.py         /api/alunos/... (lista, ficha, feedback, predição)
+│   └── predicoes.py      /api/predicoes/... (recálculo em lote), comando recalcular-predicoes
 ├── schema.sql          tabelas e regras do banco
 ├── importar.py         carrega o dataset de dados/ no banco
-└── teste_banco.py, teste_api.py
+└── teste_banco.py, teste_api.py, teste_llm.py
 ```
 
 Uma requisição passa assim: a **view** (JavaScript da tela) chama a API → o **controller** confere login e perfil → o **model** consulta ou grava no banco e aplica a regra → o controller devolve JSON → a view desenha.
@@ -46,7 +48,7 @@ Uma requisição passa assim: a **view** (JavaScript da tela) chama a API → o 
 | Login (`/`) | todos | e-mail e senha; o olho do logo segue o mouse |
 | **Painel geral** | professor, secretaria | cards com total e alunos em alto, médio e baixo risco; lista dos alunos em risco crítico; **filtro por turma** (vale para o painel inteiro) e **4 tipos de gráfico**: barras (% de alto risco por turma), barras empilhadas (alto, médio e baixo por turma), rosca (distribuição geral) e rede/radar (alunos com risco por turma, passando o mouse mostra a quantidade) |
 | Monitoramento | professor, secretaria | tabela de alunos com turma, frequência, nota, reprovações e risco; busca por nome e filtros por turma e por risco; clicar no aluno abre a ficha |
-| Predições | professor, secretaria | gera a classificação de risco de um aluno e mostra os fatores |
+| Predições | professor, secretaria | gera a classificação de risco de um aluno (regras + LLM) e mostra os fatores, o comentário da LLM e os ajustes das regras duras; sem Ollama, sai só com as regras e a tela avisa |
 | Meu desempenho | aluno | a própria ficha (disciplinas, notas, frequência, histórico de risco) e o formulário **Enviar feedback** |
 | Config. | secretaria | cadastro de usuários **em desenvolvimento** (formulário escondido; por enquanto o cadastro é pelo terminal ou pela API) |
 | Sobre (`/sobre.html`) | todos, sem login | abas Sobre, Equipe, Termos de Uso, Privacidade (LGPD), Cookies e Contato |
@@ -76,7 +78,7 @@ Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de 
 | `desfechos_alunos` | gabarito: evasão observada em 12 meses, para avaliar a predição |
 | `usuario` | login de aluno, professor e secretaria (senha só em hash) — do sistema |
 | `feedback` | comentários do aluno sobre o curso ou a instituição — do sistema |
-| `predicao_ia` | histórico de predições do sistema (baixo/médio/alto); alteração manual exige justificativa — do sistema |
+| `predicao_ia` | histórico de predições do sistema (baixo/médio/alto), com a `origem` (`llm` ou `regras`), o `modelo`, o `entrada_hash` e os `detalhes` (JSON); alteração manual exige justificativa — do sistema |
 
 Para conferir as regras do banco: `python src/teste_banco.py`
 
@@ -97,6 +99,7 @@ Para conferir as rotas: `python src/teste_api.py`
 | `404` | aluno ou recurso não existe | `{"erro": "..."}` |
 | `409` | já existe (ex.: matrícula repetida) | `{"erro": "..."}` |
 | `429` | 5 senhas erradas seguidas no mesmo login: bloqueado por 15 min | `{"erro": "..."}` |
+| `503` | recálculo em lote sem o Ollama no ar (ou modelo não baixado) | `{"erro": "..."}` |
 
 Um indicador sem dado ainda (ex.: aluno sem notas) vem como `null`.
 
@@ -143,8 +146,10 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 | GET | `/api/alunos` | — | lista de resumos do aluno (abaixo) |
 | GET | `/api/alunos/{matricula}` | — | resumo + `disciplinas` (notas e frequência por turma e tentativa) |
 | POST | `/api/alunos/{matricula}/feedback` | **alvo** (`curso` ou `instituicao`), comentarios, avaliacao_curso (1–5) | o feedback registrado |
-| POST | `/api/alunos/{matricula}/predicao` | — | `{matricula, risco, score, fatores}` e grava no histórico |
+| POST | `/api/alunos/{matricula}/predicao` | — | regras + LLM, grava uma linha nova no histórico: `{matricula, risco, score, fatores, ajustes, comentario, origem, modelo, nivel_regras, nivel_llm}`; `aviso` se o Ollama estava fora (sai só com as regras). Demora alguns segundos com a LLM |
 | GET | `/api/alunos/{matricula}/predicao` | — | histórico de predições, da mais nova para a mais antiga |
+| POST | `/api/predicoes/recalcular` | `?forcar=1` (opcional) | só secretaria: recalcula todos em segundo plano (`202`); `503` se o Ollama estiver fora; `409` se já houver um recálculo rodando |
+| GET | `/api/predicoes/recalculo` | — | só secretaria: andamento (`estado`, `total`, `feitos`, `puladas`, `falhas`) |
 
 `{matricula}` é o `codigo_academico` do aluno (ex.: `AES0001`). Não existe rota para criar ou alterar nota e frequência: elas vêm só do importador.
 
@@ -154,18 +159,25 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 {
   "matricula": "AES0001", "nome": "Estudante Sintético 001", "curso": "Engenharia de Software",
   "turma": "Lógica de Programação, Matemática Discreta, ...", "periodo": 1, "situacao": "ATIVO",
-  "distancia": 55.0, "freq": 92.8, "nota": 88.9, "reprovacoes": 0, "reclamacoes": 0, "risco": "baixo"
+  "distancia": 55.0, "freq": 92.8, "nota": 88.9, "reprovacoes": 0, "reclamacoes": 0, "registros": 5,
+  "risco": "baixo", "risco_origem": "regras"
 }
 ```
+
+`risco` é o da **última predição guardada** (`risco_origem` diz se veio da `llm` ou das `regras`); o aluno que ainda não tem predição mostra o das regras. `registros` é o número de registros acadêmicos, usado na regra do histórico mínimo.
 
 **Predição** (`POST /api/alunos/{matricula}/predicao`):
 
 ```json
 {
-  "matricula": "AES0001", "risco": "alto", "score": 7,
-  "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": true}]
+  "matricula": "AES0001", "risco": "medio", "score": 1,
+  "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": false}, "..."],
+  "ajustes": [], "origem": "llm", "modelo": "qwen3:8b", "nivel_regras": "baixo", "nivel_llm": "medio",
+  "comentario": "Frequência e nota boas; atenção à distância de 55 km e ao histórico curto."
 }
 ```
+
+Exemplo ilustrativo. `origem` é `llm` ou `regras`; `ajustes` explica quando uma regra dura mudou o nível; `aviso` aparece só quando o Ollama estava fora do ar.
 
 **Erro:**
 
@@ -192,16 +204,20 @@ Precisa do **Python 3.10+** instalado.
    ```bash
    pip install -r requirements.txt
    ```
-   As dependências são o **Flask** e duas bibliotecas que o código importa direto: **Werkzeug** (hash de senha, erros HTTP) e **Click** (comando `criar-usuario`). As duas já viriam junto com o Flask, mas ficam listadas porque o projeto usa elas diretamente. O `sqlite3` já vem com o Python e nenhuma biblioteca de gráficos é necessária.
-4. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
+   As dependências são o **Flask** e três bibliotecas que o código importa direto: **Werkzeug** (hash de senha, erros HTTP), **Click** (comandos `criar-usuario` e `recalcular-predicoes`) e **ollama** (cliente da LLM; só é carregado na hora de chamar o Ollama, então o resto do sistema funciona mesmo sem ele). As duas já viriam junto com o Flask, mas ficam listadas porque o projeto usa elas diretamente. O `sqlite3` já vem com o Python e nenhuma biblioteca de gráficos é necessária.
+4. (Para a predição com LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo, uma vez só; sem isso a predição sai só com as regras. Passo a passo em [`LLM.md`](LLM.md):
+   ```bash
+   ollama pull qwen3:8b
+   ```
+5. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
    ```bash
    python src/importar.py
    ```
-5. Rode o servidor:
+6. Rode o servidor:
    ```bash
    python src/Espiada.py
    ```
-6. Abra http://127.0.0.1:5000 — abre a tela de login (`src/views/login.html`); entre com um dos [logins padrão](#login-e-perfis) e vai para o painel (`src/views/interface.html`), que mostra só as abas do seu perfil.
+7. Abra http://127.0.0.1:5000 — abre a tela de login (`src/views/login.html`); entre com um dos [logins padrão](#login-e-perfis) e vai para o painel (`src/views/interface.html`), que mostra só as abas do seu perfil.
 
 Para parar o servidor: `Ctrl+C` no terminal.
 
@@ -209,7 +225,7 @@ Para parar o servidor: `Ctrl+C` no terminal.
 
 ### Visão geral
 
-Os dados acadêmicos vêm do dataset sintético fornecido, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
+Os dados acadêmicos vêm do dataset sintético fornecido, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
 
 ```mermaid
 flowchart LR
@@ -220,7 +236,7 @@ flowchart LR
         API --> CALC
     end
     API <--> DB[("SQLite<br/>funcionaai.db")]
-    CALC <-->|contexto do aluno| LLM["LLM Ollama<br/>(nuvem)"]
+    CALC <-->|contexto do aluno| LLM["LLM Ollama<br/>(local)"]
     CALC -->|grava predição| DB
     CALC -->|alto risco| NOTIF["WhatsApp / Telegram<br/>coordenação"]
     U["Usuário<br/>aluno, professor, secretaria"] -->|login.html| API
@@ -244,14 +260,17 @@ flowchart TD
 
 ### Predição de risco
 
-Roda sempre que chegam dados novos. Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde.
+Roda quando alguém clica em **Gerar predição** (um aluno) e no **recálculo em lote** (`flask --app src/Espiada.py recalcular-predicoes` ou `POST /api/predicoes/recalcular`), que pula quem não mudou desde a última análise da LLM. Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde. A LLM é local, não conversa com ninguém e só recebe indicadores anonimizados; o funcionamento completo, a instalação e o uso estão em [`LLM.md`](LLM.md).
 
 ```mermaid
 flowchart TD
-    N["Dados novos importados"] --> I["Calcula indicadores<br/>frequência, nota, reprovações"]
+    N["Dados novos, recálculo em lote<br/>ou botão Gerar predição"] --> I["Calcula indicadores<br/>frequência, nota, reprovações"]
     I --> R["Aplica as regras de risco<br/>(pontuação abaixo)"]
-    R --> L["LLM avalia o contexto<br/>notas, faltas, entregas, feedback"]
-    L --> S["Salva predição no histórico<br/>baixo / médio / alto"]
+    R --> L["LLM local avalia o contexto anonimizado<br/>notas e faltas por semestre, feedback"]
+    L -->|Ollama fora ou resposta inválida| R2["Vale o nível das regras<br/>origem = regras"]
+    L --> D1["A LLM só se afasta 1 nível das regras;<br/>as regras duras têm a palavra final"]
+    R2 --> S
+    D1 --> S["Salva predição no histórico<br/>baixo / médio / alto"]
     S --> Q{"Alto risco e<br/>dados suficientes?"}
     Q -->|não| F["Fim"]
     Q -->|sim| D{"Já notificou esse aluno<br/>nas últimas 24h?"}
@@ -310,3 +329,5 @@ Relações N:N não aparecem como uma linha direta: elas passam por uma tabela i
 - `distancia` = distância rodoviária da cidade onde o aluno mora até Anápolis
 - `reclamacoes` = feedbacks com avaliação 1 ou 2
 - `risco` (`calcular_risco()` em `src/models/predicao.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.
+- **regras duras** (valem acima da pontuação e da LLM): frequência < 75% força "alto"; menos de 8 registros acadêmicos (`HISTORICO_MINIMO`) limita a "médio"; com as duas juntas, o histórico curto vence e o nível fica "médio". Campo sem dado não aplica a regra.
+- **LLM** (`qwen3:8b` no Ollama): recebe o contexto anonimizado e a pré-análise das regras e devolve um nível e um comentário; pode se afastar no máximo 1 nível do das regras (`LLM_PASSO_MAXIMO`). Detalhes em [`LLM.md`](LLM.md).

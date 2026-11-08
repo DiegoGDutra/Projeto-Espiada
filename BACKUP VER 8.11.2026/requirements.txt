@@ -1,0 +1,4 @@
+Flask>=3.1,<4
+Werkzeug>=3.1,<4  # importado direto: hash de senha e erros HTTP
+click>=8.1        # importado direto: comando flask criar-usuario
+ollama>=0.5.1

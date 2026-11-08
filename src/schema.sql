@@ -207,6 +207,8 @@ CREATE TABLE IF NOT EXISTS feedback (
 
 -- Histórico de predições do sistema: uma linha por cálculo, nunca sobrescreve.
 -- Risco em níveis; alteração manual exige quem alterou e justificativa.
+-- origem: 'llm' (regras + Ollama) ou 'regras' (LLM fora do ar). entrada_hash: resumo do que a LLM recebeu;
+-- se for igual ao da última predição, nada mudou e o recálculo em lote pula o aluno.
 CREATE TABLE IF NOT EXISTS predicao_ia (
   predicao_id         INTEGER PRIMARY KEY,
   matricula_curso_id  INTEGER NOT NULL REFERENCES matriculas_curso(matricula_curso_id),
@@ -216,5 +218,9 @@ CREATE TABLE IF NOT EXISTS predicao_ia (
   comentario_predicao TEXT,
   alterada_por        TEXT REFERENCES usuario(login),
   justificativa       TEXT,
+  origem              TEXT NOT NULL DEFAULT 'regras' CHECK (origem IN ('regras', 'llm')),
+  modelo              TEXT,
+  entrada_hash        TEXT,
+  detalhes            TEXT,  -- JSON: fatores, ajustes das regras duras, nível das regras e nível da LLM
   CHECK (alterada_por IS NULL OR justificativa IS NOT NULL)
 );

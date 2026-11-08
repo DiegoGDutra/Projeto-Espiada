@@ -1,0 +1,8 @@
+/* Inter servida pelo próprio sistema (sem Google Fonts). Licença: OFL.txt */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('inter.woff2') format('woff2');
+}

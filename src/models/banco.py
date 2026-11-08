@@ -6,6 +6,14 @@ from pathlib import Path
 BANCO = Path(__file__).resolve().parent.parent / "funcionaai.db"
 SCHEMA = Path(__file__).resolve().parent.parent / "schema.sql"
 
+# colunas da predicao_ia que nasceram depois da 1ª versão do schema: bancos antigos recebem por ALTER TABLE
+COLUNAS_PREDICAO = {
+    "origem": "TEXT NOT NULL DEFAULT 'regras' CHECK (origem IN ('regras', 'llm'))",
+    "modelo": "TEXT",
+    "entrada_hash": "TEXT",
+    "detalhes": "TEXT",
+}
+
 
 class ErroModelo(Exception):
     """Regra de negócio ou do banco violada. status segue o HTTP (400 inválido, 409 já existe...)."""
@@ -23,9 +31,14 @@ def conectar(caminho=None):
 
 
 def criar_banco(caminho=None):
-    """Cria as tabelas que ainda não existem (pode rodar toda vez que o app sobe)."""
+    """Cria as tabelas que ainda não existem e acrescenta as colunas novas em bancos antigos
+    (pode rodar toda vez que o app sobe)."""
     with conectar(caminho) as con:
         con.executescript(SCHEMA.read_text(encoding="utf-8"))
+        existentes = {linha["name"] for linha in con.execute("PRAGMA table_info(predicao_ia)")}
+        for coluna, definicao in COLUNAS_PREDICAO.items():
+            if coluna not in existentes:
+                con.execute(f"ALTER TABLE predicao_ia ADD COLUMN {coluna} {definicao}")
 
 
 @contextmanager

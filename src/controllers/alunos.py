@@ -19,13 +19,14 @@ def aluno_visivel(matricula):
 
 @bp.get("/api/alunos")
 def listar_alunos():
-    return jsonify([a | {"risco": predicao.calcular_risco(a)["risco"]} for a in alunos.listar(session)])
+    ultimas = predicao.ultimas_por_aluno()  # o risco mostrado é o da última predição guardada (ou o das regras)
+    return jsonify([a | predicao.risco_atual(a, ultimas.get(a["matricula"])) for a in alunos.listar(session)])
 
 
 @bp.get("/api/alunos/<matricula>")
 def obter_aluno(matricula):
     aluno = aluno_visivel(matricula)
-    aluno["risco"] = predicao.calcular_risco(aluno)["risco"]
+    aluno |= predicao.risco_atual(aluno, predicao.ultima(matricula))
     aluno["disciplinas"] = alunos.disciplinas(matricula)
     return jsonify(aluno)
 
@@ -42,9 +43,9 @@ def registrar_feedback(matricula):
 @bp.post("/api/alunos/<matricula>/predicao")
 def gerar_predicao(matricula):
     exige("professor", "secretaria")  # aluno só consulta
-    resultado = predicao.calcular_risco(aluno_visivel(matricula))
-    predicao.salvar(matricula, resultado)
-    return jsonify({"matricula": matricula} | resultado), 201
+    aluno = aluno_visivel(matricula)
+    # regras + LLM; sem Ollama a predição sai só com as regras e a resposta traz o motivo em "aviso"
+    return jsonify({"matricula": matricula} | predicao.analisar(matricula, aluno)), 201
 
 
 @bp.get("/api/alunos/<matricula>/predicao")

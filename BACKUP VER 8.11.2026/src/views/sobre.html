@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espiada — Sobre, Termos e Privacidade</title>
+  <link rel="stylesheet" href="/static/fontes/inter.css">
+  <style>
+    :root {
+      --navy-900: #141B4D;
+      --navy-800: #1D2766;
+      --accent: #E8592C;
+      --border: #E3E5EF;
+      --text: #1B1E2E;
+      --text-soft: #6A6F87;
+      --bg: #F8F9FC;
+      --card-bg: #FFFFFF;
+      --font: 'Inter', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+      padding: 40px 16px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 40px;
+      box-shadow: 0 2px 14px rgba(20, 27, 77, 0.06);
+    }
+    header {
+      margin-bottom: 24px;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--navy-900);
+      margin-bottom: 8px;
+    }
+    header p {
+      font-size: 14px;
+      color: var(--text-soft);
+    }
+    .voltar {
+      display: inline-block;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    [role="tablist"] {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+      overflow-x: auto;
+    }
+    [role="tab"] {
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-soft);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 10px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    [role="tab"]:hover { color: var(--navy-800); }
+    [role="tab"][aria-selected="true"] {
+      color: var(--navy-900);
+      border-bottom-color: var(--accent);
+    }
+    [role="tab"]:focus-visible {
+      outline: 2px solid var(--navy-800);
+      outline-offset: -2px;
+    }
+    section {
+      margin-bottom: 28px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--navy-900);
+      margin-bottom: 16px;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--navy-800);
+      margin-bottom: 10px;
+    }
+    p, ul, table {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      font-size: 13px;
+      color: var(--text-soft);
+      font-weight: 600;
+    }
+    .tabela { overflow-x: auto; }
+    .aviso {
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 4px;
+    }
+    .placeholder {
+      background: #FFF4E5;
+      color: #9A3E00;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    footer {
+      padding-top: 20px;
+      margin-top: 40px;
+      font-size: 13px;
+      color: var(--text-soft);
+      text-align: center;
+    }
+    a {
+      color: var(--navy-800);
+      text-decoration: underline;
+    }
+    @media (max-width: 600px) {
+      body { padding: 16px; }
+      .container { padding: 24px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <a class="voltar" href="/">← Voltar ao sistema</a>
+    <header>
+      <h1>Espiada — SIMPA</h1>
+      <p>Sobre o projeto, termos de uso, privacidade e cookies · Última atualização: 30/10/2026</p>
+    </header>
+
+    <nav role="tablist" aria-label="Seções">
+      <button role="tab" id="aba-sobre" aria-controls="sobre">Sobre</button>
+      <button role="tab" id="aba-equipe" aria-controls="equipe">Equipe</button>
+      <button role="tab" id="aba-termos" aria-controls="termos">Termos de Uso</button>
+      <button role="tab" id="aba-privacidade" aria-controls="privacidade">Privacidade (LGPD)</button>
+      <button role="tab" id="aba-cookies" aria-controls="cookies">Cookies</button>
+      <button role="tab" id="aba-contato" aria-controls="contato">Contato</button>
+    </nav>
+
+    <!-- ===================== SOBRE ===================== -->
+    <div role="tabpanel" id="sobre" aria-labelledby="aba-sobre">
+      <h2>Sobre o projeto</h2>
+      <section>
+        <p>O <strong>Espiada</strong> é a implementação do <strong>SIMPA</strong>, um sistema de monitoramento e predição de risco de evasão acadêmica. Ele reúne notas, frequência e perfil dos alunos, calcula um nível de risco (baixo, médio ou alto) e mostra os alunos que precisam de atenção, para que a coordenação e os professores possam agir antes da evasão acontecer.</p>
+        <p class="aviso">Este é um <strong>projeto acadêmico</strong>, sem fins comerciais. Todos os alunos exibidos vêm de um <strong>conjunto de dados sintético</strong> fornecido à turma: nenhum registro representa uma pessoa real.</p>
+      </section>
+      <section>
+        <h3>Ficha técnica</h3>
+        <div class="tabela">
+          <table>
+            <tr><th>Projeto</th><td>Espiada — SIMPA</td></tr>
+            <tr><th>Versão</th><td>Em desenvolvimento — entrega final prevista para 13/12/2026</td></tr>
+            <tr><th>Ano / semestre</th><td>2026/2</td></tr>
+            <tr><th>Tecnologias</th><td>Python com Flask, SQLite, HTML, CSS e JavaScript; arquitetura MVC</td></tr>
+            <tr><th>Dados</th><td>Dataset sintético: 120 alunos de Engenharia de Software, semestres 2023-1 a 2026-2</td></tr>
+            <tr><th>Repositório</th><td><a href="https://github.com/diegounilalele/Projeto-SIMPA" rel="noopener">github.com/diegounilalele/Projeto-SIMPA</a></td></tr>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h3>Créditos e licenças de terceiros</h3>
+        <ul>
+          <li>Fonte <strong>Inter</strong>, de The Inter Project Authors, sob a SIL Open Font License 1.1 (<a href="/static/fontes/OFL.txt">licença</a>).</li>
+          <li><strong>Flask</strong>, sob a licença BSD-3-Clause.</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ===================== EQUIPE ===================== -->
+    <div role="tabpanel" id="equipe" aria-labelledby="aba-equipe">
+      <h2>Equipe e instituição</h2>
+      <section>
+        <div class="tabela">
+          <table>
+            <tr><th>Instituição</th><td>UniEVANGÉLICA — Anápolis (GO)</td></tr>
+            <tr><th>Curso</th><td>Inteligência Artificial</td></tr>
+            <tr><th>Período / turma</th><td>2º período</td></tr>
+            <tr><th>Professor(a) orientador(a)</th><td>Éder Silva</td></tr>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h3>Autores</h3>
+        <div class="tabela">
+          <table>
+            <tr><th>Nome</th><th>Função no projeto</th></tr>
+            <tr><td>Diego Garcez</td><td>Full Stack e documentação</td></tr>
+            <tr><td>André Ribeiro</td><td>Banco de dados</td></tr>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== TERMOS DE USO ===================== -->
+    <div role="tabpanel" id="termos" aria-labelledby="aba-termos">
+      <h2>Termos de Uso</h2>
+      <section>
+        <h3>1. Aceitação</h3>
+        <p>Ao fazer login no Espiada, você concorda com estes Termos e com a Política de Privacidade. Se não concordar, não utilize o sistema.</p>
+      </section>
+      <section>
+        <h3>2. Finalidade do sistema</h3>
+        <p>O Espiada serve para acompanhar o desempenho acadêmico e apoiar ações de prevenção à evasão. Ele não substitui o sistema acadêmico oficial: notas e frequência só entram pela importação dos dados, e nenhuma tela permite alterá-las.</p>
+      </section>
+      <section>
+        <h3>3. Contas e perfis de acesso</h3>
+        <ul>
+          <li>As contas são criadas pela secretaria. Não há cadastro aberto.</li>
+          <li><strong>Aluno:</strong> vê apenas os próprios dados e pode enviar feedback sobre o curso ou a instituição.</li>
+          <li><strong>Professor:</strong> vê apenas os alunos que passaram pelas próprias turmas e pode gerar predições de risco para eles.</li>
+          <li><strong>Secretaria:</strong> vê todos os alunos, gera predições e cadastra usuários.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>4. Responsabilidades do usuário</h3>
+        <ul>
+          <li>Manter a senha em sigilo e não compartilhar a conta.</li>
+          <li>Usar os dados apenas para fins acadêmicos e de acompanhamento do aluno.</li>
+          <li>Não copiar, divulgar ou exportar dados de alunos para fora do sistema sem autorização.</li>
+          <li>Não tentar acessar dados ou funções de outro perfil. Toda tentativa negada fica registrada.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>5. Predição de risco</h3>
+        <p>O nível de risco é calculado de forma automática a partir de regras e indicadores. Ele é um <strong>apoio à decisão</strong>, não uma conclusão sobre o aluno, e não deve ser usado para punir ou excluir ninguém. Qualquer ação deve ser avaliada por uma pessoa.</p>
+      </section>
+      <section>
+        <h3>6. Disponibilidade</h3>
+        <p>Por se tratar de um projeto acadêmico, o sistema pode ficar fora do ar, mudar ou ser encerrado sem aviso prévio.</p>
+      </section>
+      <section>
+        <h3>7. Propriedade intelectual</h3>
+        <p>O código e o conteúdo do Espiada pertencem aos autores listados na aba Equipe. Os componentes de terceiros seguem as próprias licenças (aba Sobre).</p>
+      </section>
+      <section>
+        <h3>8. Alterações</h3>
+        <p>Estes Termos podem ser atualizados. A data da última atualização aparece no topo desta página.</p>
+      </section>
+    </div>
+
+    <!-- ===================== PRIVACIDADE (LGPD) ===================== -->
+    <div role="tabpanel" id="privacidade" aria-labelledby="aba-privacidade">
+      <h2>Política de Privacidade</h2>
+      <section>
+        <h3>1. Introdução e controlador</h3>
+        <p>Esta Política explica como o Espiada coleta, usa, armazena e protege dados pessoais, conforme a <a href="https://www.stj.jus.br/sites/portalp/Leis-e-normas/lei-geral-de-protecao-de-dados-pessoais-lgpd" target="_blank" rel="noopener">Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</a>.</p>
+        <p>No ambiente acadêmico, os responsáveis pelo tratamento são os autores do projeto (aba Equipe). Em uso real, o <strong>controlador</strong> seria a instituição de ensino: UniEVANGÉLICA (CNPJ <span class="placeholder">[CNPJ]</span>).</p>
+      </section>
+      <section>
+        <h3>2. Dados tratados</h3>
+        <ul>
+          <li><strong>Usuários do sistema:</strong> e-mail de login, nome, perfil (aluno, professor ou secretaria) e senha, guardada apenas como hash.</li>
+          <li><strong>Identificação do aluno:</strong> nome, matrícula, data de nascimento, gênero autodeclarado e curso.</li>
+          <li><strong>Dados acadêmicos:</strong> notas, frequência, faltas, reprovações, situação em cada disciplina e período atual.</li>
+          <li><strong>Localização:</strong> cidade onde o aluno mora e a distância até o campus.</li>
+          <li><strong>Perfil socioeconômico:</strong> renda pessoal e familiar, pessoas no domicílio, se trabalha e quantas horas, dependentes, se é a primeira geração da família no ensino superior, qualidade da internet, se veio de escola pública, bolsas e financiamentos.</li>
+          <li><strong>Feedback:</strong> avaliação e comentários que o aluno envia sobre o curso ou a instituição.</li>
+          <li><strong>Predições:</strong> nível e pontuação de risco calculados, com data e eventuais alterações manuais e suas justificativas.</li>
+          <li><strong>Registros de segurança:</strong> e-mail e endereço IP em tentativas de login que falharam; e-mail, perfil e endereço acessado em tentativas de acesso negadas.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>3. Finalidades</h3>
+        <ul>
+          <li>Autenticar o usuário e mostrar só os dados que o perfil dele pode ver.</li>
+          <li>Calcular o risco de evasão e identificar alunos que precisam de acompanhamento.</li>
+          <li>Gerar indicadores para a coordenação e os professores.</li>
+          <li>Proteger o sistema contra acessos indevidos.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>4. Bases legais</h3>
+        <ul>
+          <li><strong>Execução de contrato</strong> (art. 7º, V): o acompanhamento acadêmico faz parte da prestação do serviço educacional.</li>
+          <li><strong>Legítimo interesse</strong> (art. 7º, IX): prevenção da evasão e segurança do sistema.</li>
+          <li><strong>Cumprimento de obrigação legal</strong> (art. 7º, II): guarda de registros acadêmicos exigida da instituição.</li>
+        </ul>
+        <p>As bases legais devem ser confirmadas pela instituição antes de qualquer uso com dados reais.</p>
+      </section>
+      <section>
+        <h3>5. Decisões automatizadas</h3>
+        <p>O nível de risco é gerado de forma automatizada. Conforme o art. 20 da LGPD, o aluno pode pedir a <strong>revisão</strong> dessa classificação e saber quais critérios foram usados: frequência, nota média, reprovações, reclamações no feedback e distância até o campus. A predição pode ser alterada manualmente pela secretaria ou pelo professor da turma, sempre com justificativa registrada.</p>
+      </section>
+      <section>
+        <h3>6. Compartilhamento</h3>
+        <p>Os dados não são vendidos nem compartilhados com terceiros. Ficam no servidor do próprio sistema.</p>
+        <p>Está prevista a integração com um modelo de linguagem (LLM) em nuvem para apoiar a predição. Quando ela entrar em funcionamento, esta seção vai informar o serviço usado e quais dados são enviados, de preferência anonimizados.</p>
+      </section>
+      <section>
+        <h3>7. Armazenamento e segurança</h3>
+        <ul>
+          <li>Senhas guardadas apenas como hash, nunca em texto puro.</li>
+          <li>Controle de acesso por perfil: cada usuário recebe só os alunos que pode ver.</li>
+          <li>Cookie de sessão protegido contra leitura por scripts e contra uso a partir de outros sites.</li>
+          <li>Bloqueio de 15 minutos após 5 senhas erradas seguidas.</li>
+          <li>Notas e frequência não podem ser alteradas por nenhuma tela do sistema.</li>
+        </ul>
+        <p>Os dados são mantidos enquanto durar o vínculo do aluno com a instituição, ou pelo prazo legal de guarda: <span class="placeholder">[prazo definido pela instituição]</span>.</p>
+      </section>
+      <section>
+        <h3>8. Direitos do titular</h3>
+        <p>Nos termos do art. 18 da LGPD, você pode solicitar a qualquer momento:</p>
+        <ul>
+          <li>Confirmação de que seus dados são tratados e acesso a eles;</li>
+          <li>Correção de dados incompletos, inexatos ou desatualizados;</li>
+          <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos;</li>
+          <li>Portabilidade dos dados;</li>
+          <li>Informação sobre com quem os dados foram compartilhados;</li>
+          <li>Revisão de decisões tomadas de forma automatizada (art. 20);</li>
+          <li>Revogação do consentimento, quando ele for a base legal.</li>
+        </ul>
+        <p>Para exercer esses direitos, use os canais da aba Contato.</p>
+      </section>
+    </div>
+
+    <!-- ===================== COOKIES ===================== -->
+    <div role="tabpanel" id="cookies" aria-labelledby="aba-cookies">
+      <h2>Política de Cookies</h2>
+      <section>
+        <p>O Espiada usa <strong>um único cookie</strong>, estritamente necessário para o funcionamento do sistema:</p>
+        <ul>
+          <li><strong>Nome:</strong> <code>session</code>, criado pelo próprio sistema (cookie primário).</li>
+          <li><strong>Finalidade:</strong> manter você conectado depois do login e identificar o seu perfil (aluno, professor ou secretaria), para mostrar só os dados que você pode ver.</li>
+          <li><strong>Conteúdo:</strong> seu e-mail de login, nome, perfil e o identificador interno de aluno ou docente. O cookie é assinado digitalmente, o que impede que seja alterado.</li>
+          <li><strong>Duração:</strong> apagado ao sair do sistema ou ao fechar o navegador.</li>
+          <li><strong>Proteções:</strong> não pode ser lido por scripts da página (<code>HttpOnly</code>) e não é enviado em pedidos vindos de outros sites (<code>SameSite=Strict</code>).</li>
+        </ul>
+        <p>Como esse cookie é indispensável para o serviço que você solicitou, ele não depende de consentimento. Se você bloqueá-lo no navegador, não será possível fazer login.</p>
+        <p>Não usamos cookies de análise, publicidade ou rastreamento, nem cookies de terceiros. As fontes e demais arquivos das páginas são servidos pelo próprio sistema, sem contato com serviços externos.</p>
+      </section>
+    </div>
+
+    <!-- ===================== CONTATO ===================== -->
+    <div role="tabpanel" id="contato" aria-labelledby="aba-contato">
+      <h2>Contato e Encarregado de Dados</h2>
+      <section>
+        <p>Para dúvidas sobre o sistema, sobre estes Termos ou para exercer seus direitos de titular:</p>
+        <ul>
+          <li><strong>Encarregado pelo tratamento de dados (DPO):</strong> Diego Garcez - garcezdutradiego@gmail.com</li>
+        </ul>
+        <p>O encarregado é a pessoa que recebe os pedidos dos titulares e se comunica com a Autoridade Nacional de Proteção de Dados (ANPD), conforme o art. 41 da LGPD.</p>
+        <p>Se a sua solicitação não for atendida, você pode recorrer à ANPD pelo site <a href="https://www.gov.br/anpd" rel="noopener">gov.br/anpd</a>.</p>
+      </section>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Espiada — SIMPA. Projeto acadêmico.</p>
+      <p><a href="https://www.stj.jus.br/sites/portalp/Leis-e-normas/lei-geral-de-protecao-de-dados-pessoais-lgpd" target="_blank" rel="noopener">LGPD — Lei nº 13.709/2018</a>.</p>
+    </footer>
+  </main>
+
+  <script>
+    // Abas: a aba aberta fica no endereço (#privacidade, #cookies...), então o rodapé pode linkar direto.
+    const abas = [...document.querySelectorAll('[role="tab"]')];
+
+    function abrir(id, foco) {
+      const atual = abas.find(a => a.getAttribute('aria-controls') === id) || abas[0];
+      for (const aba of abas) {
+        const ativa = aba === atual;
+        aba.setAttribute('aria-selected', ativa);
+        aba.tabIndex = ativa ? 0 : -1;
+        document.getElementById(aba.getAttribute('aria-controls')).hidden = !ativa;
+      }
+      if (foco) atual.focus();
+      history.replaceState(null, '', '#' + atual.getAttribute('aria-controls'));
+    }
+
+    for (const aba of abas) {
+      aba.addEventListener('click', () => abrir(aba.getAttribute('aria-controls')));
+      aba.addEventListener('keydown', e => {  // setas trocam de aba (padrão de acessibilidade)
+        const passo = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+        if (!passo) return;
+        const proxima = abas[(abas.indexOf(aba) + passo + abas.length) % abas.length];
+        abrir(proxima.getAttribute('aria-controls'), true);
+      });
+    }
+    window.addEventListener('hashchange', () => abrir(location.hash.slice(1)));
+    abrir(location.hash.slice(1));
+  </script>
+</body>
+</html>

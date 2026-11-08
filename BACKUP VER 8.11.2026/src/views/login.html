@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espiada — Acesso</title>
+<link rel="stylesheet" href="/static/fontes/inter.css">
+<style>
+:root{
+  --navy-900:#141B4D;
+  --navy-800:#1D2766;
+  --accent:#E8592C;
+  --accent-soft:#FCE7DD;
+  --border:#E3E5EF;
+  --text:#1B1E2E;
+  --text-soft:#6A6F87;
+  --font:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);color:var(--text);background:#fff;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:40px 16px;}
+.card{width:100%;max-width:370px;background:#fff;border-radius:6px;padding:48px 30px 30px;
+  box-shadow:0 2px 14px rgba(20,27,77,.10);}
+.brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:34px;}
+.mark{width:56px;height:56px;flex-shrink:0;}
+#pupila{transition:transform .1s ease-out;}
+.brand h1{font-size:22px;font-weight:800;color:var(--navy-900);line-height:1;}
+.brand p{font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);margin-top:3px;}
+
+.req{font-size:14.5px;color:var(--text-soft);margin-bottom:12px;}
+input{width:100%;padding:11px 13px;font:inherit;font-size:15px;border:1px solid #B8BCCB;border-radius:4px;margin-bottom:14px;}
+input:focus{outline:2px solid var(--navy-800);outline-offset:-1px;}
+.forgot{display:block;font-size:13px;color:var(--navy-800);text-decoration:none;margin:-4px 0 26px;}
+.forgot:hover{text-decoration:underline;}
+button{width:100%;padding:15px;border:none;border-radius:4px;background:var(--navy-900);color:#fff;
+  font:inherit;font-size:15px;cursor:pointer;box-shadow:0 3px 8px rgba(20,27,77,.3);}
+.erro{color:#C6433B;font-size:13.5px;margin:-4px 0 14px;}
+.erro:empty{display:none;}
+button:hover{background:var(--navy-800);}
+.footer-login{text-align:center;font-size:12px;color:var(--text-soft);line-height:1.5;max-width:370px;}
+.footer-login a{color:var(--navy-800);text-decoration:underline;}
+.footer-login .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 4px;border-radius:3px;font-size:11px;font-weight:500;}
+</style>
+</head>
+<body>
+  <form class="card" id="form">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <radialGradient id="globo" cx="40%" cy="35%" r="70%">
+            <stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#ECECEC"/><stop offset="1" stop-color="#B9B9B9"/>
+          </radialGradient>
+          <radialGradient id="iris" r="50%">
+            <stop offset=".35" stop-color="#7FD3FF"/><stop offset=".7" stop-color="#1E6FE0"/><stop offset="1" stop-color="#0A1E5A"/>
+          </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="46" fill="url(#globo)"/>
+        <g stroke="#D0141B" stroke-width="1.2" fill="none" stroke-linecap="round">
+          <path d="M40 8l4 9 6 2m-6-2l-3 7M62 9l-2 8 5 6m-5-6l-7 1M88 32l-9 4-3 8m3-8l7 6M92 58l-8 2-4 7m4-7l5 6M14 30l8 5 2 7m-2-7l-8 3M10 60l9-2 4 6M70 88l-4-8-7-1m7 1l2-7M30 86l5-8"/>
+        </g>
+        <g id="pupila">
+          <circle cx="50" cy="50" r="21" fill="url(#iris)" stroke="#0A1E5A" stroke-width="1.5"/>
+          <circle cx="50" cy="50" r="14" fill="none" stroke="#BDE9FF" stroke-width="8" stroke-dasharray=".5 1.6" opacity=".55"/>
+          <circle cx="50" cy="50" r="8.5" fill="#02040F"/>
+          <ellipse cx="45" cy="44" rx="3.2" ry="2.2" fill="#fff" opacity=".85"/>
+        </g>
+        <rect x="70" y="24" width="7" height="5" rx="1.5" fill="#fff" transform="rotate(35 73 26)"/>
+      </svg>
+      <div><h1>Espiada</h1><p>Monitoramento e Predição Acadêmica</p></div>
+    </div>
+
+    <p class="req">* indica um campo obrigatório</p>
+    <input name="login" type="email" placeholder="E-mail*" aria-label="E-mail" required autocomplete="username">
+    <input name="senha" type="password" placeholder="Senha*" aria-label="Senha" required autocomplete="current-password">
+    <p class="erro" id="erro" role="alert"></p>
+    <a class="forgot" href="#">Esqueceu o seu usuário ou senha?</a>
+    <button type="submit">Acessar</button>
+  </form>
+
+  <footer class="footer-login">
+    <p>&copy; 2026 Espiada — SIMPA. Projeto acadêmico.</p>
+    <p><a href="https://www.stj.jus.br/sites/portalp/Leis-e-normas/lei-geral-de-protecao-de-dados-pessoais-lgpd" target="_blank" rel="noopener">LGPD — Lei nº 13.709/2018</a>.</p>
+    <p><a href="sobre.html#sobre">Sobre</a> · <a href="sobre.html#termos">Termos de Uso</a> · <a href="sobre.html#privacidade">Privacidade (LGPD)</a> · <a href="sobre.html#cookies">Cookies</a> · <a href="sobre.html#contato">Contato</a></p>
+  </footer>
+<script>
+document.getElementById('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = await fetch('/api/login', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+  if (r.ok) location.href = 'interface.html';
+  else document.getElementById('erro').textContent = (await r.json()).erro;
+});
+
+// a íris do logo segue o mouse, sem sair do globo do olho
+const pupila = document.getElementById('pupila');
+addEventListener('mousemove', e => {
+  const r = pupila.ownerSVGElement.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 150);  // perto do logo = move menos
+  pupila.style.transform = `translate(${dx / d * k * 15}px, ${dy / d * k * 15}px)`;
+});
+</script>
+</body>
+</html>
