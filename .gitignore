@@ -8,5 +8,8 @@ funcionaai.db
 
 __pycache__/
 .venv/
+
+*.pptx
+
 # Graphify output
 graphify-out/
