@@ -1,7 +1,9 @@
 """Confere as regras do schema.sql num banco em memória.  Rodar:  python src/teste_banco.py"""
 import sqlite3
+import tempfile
+from pathlib import Path
 
-from models.banco import SCHEMA, conectar
+from models.banco import SCHEMA, conectar, criar_banco
 
 con = conectar(":memory:")  # banco temporário, não mexe no funcionaai.db
 con.executescript(SCHEMA.read_text(encoding="utf-8"))
@@ -38,4 +40,25 @@ assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES 
 assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, alterada_por) VALUES (1, 'alto', 'ada@simpa.test')"), \
     "alteração manual sem justificativa"
 assert recusa("INSERT INTO feedback (aluno_id, alvo) VALUES (1, 'professor')"), "feedback só de curso/instituição"
+assert con.execute("SELECT DISTINCT origem FROM predicao_ia").fetchall()[0][0] == "regras", "origem padrão é regras"
+assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem) VALUES (1, 'alto', 'chute')"), \
+    "origem só regras ou llm"
+con.execute("""INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem, modelo, entrada_hash, detalhes)
+               VALUES (1, 'alto', 'llm', 'qwen3:8b', 'abc', '{}')""")
+
+# banco criado antes das colunas novas: criar_banco acrescenta e as linhas antigas ficam com origem 'regras'
+antigo = Path(tempfile.mkdtemp()) / "antigo.db"
+velho = sqlite3.connect(antigo)
+velho.execute("""CREATE TABLE predicao_ia (predicao_id INTEGER PRIMARY KEY, matricula_curso_id INTEGER NOT NULL,
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, nivel_risco TEXT NOT NULL, score INTEGER,
+    comentario_predicao TEXT, alterada_por TEXT, justificativa TEXT)""")
+velho.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score) VALUES (1, 'medio', 3)")
+velho.commit()
+velho.close()
+criar_banco(antigo)
+criar_banco(antigo)  # pode rodar toda vez que o app sobe, sem repetir o ALTER
+migrado = conectar(antigo)
+assert [tuple(l) for l in migrado.execute("SELECT nivel_risco, origem, modelo, entrada_hash, detalhes FROM predicao_ia")] \
+    == [("medio", "regras", None, None, None)], "migração do banco antigo"
+migrado.close()
 print("ok: todas as regras do banco funcionam")

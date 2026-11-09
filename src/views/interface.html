@@ -170,8 +170,6 @@ tbody tr:last-child td{border-bottom:none;}
 .predict-box select{border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:var(--font); font-size:13.5px; background:#fff; color:var(--text); min-width:220px;}
 .btn{background:var(--accent); color:#fff; border:none; border-radius:8px; padding:10px 18px; font-family:var(--font); font-size:13.5px; font-weight:600; cursor:pointer;}
 .btn:hover{filter:brightness(.94);}
-.btn.sec{background:#fff; color:var(--accent); border:1px solid var(--accent); padding:9px 17px;}
-.btn:disabled{opacity:.5; cursor:not-allowed;}
 .predict-result{display:none;}
 .predict-result.show{display:block;}
 .gauge-row{display:flex; align-items:center; gap:16px; margin-bottom:16px;}
@@ -181,6 +179,10 @@ tbody tr:last-child td{border-bottom:none;}
 .factor .tag{font-size:11px; padding:2px 8px; border-radius:6px; font-weight:600;}
 .tag.neg{background:var(--risk-high-bg); color:var(--risk-high);}
 .tag.ok{background:var(--risk-low-bg); color:var(--risk-low);}
+.analise{margin-top:12px; font-size:13px; line-height:1.5;}
+.analise p{margin:4px 0 0;}
+.analise .origem{font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--text-soft);}
+.hist-com{padding:0 0 8px; margin-top:-4px; border-bottom:1px solid var(--border);}
 .note{font-size:12.5px; color:var(--text-soft); margin-top:14px; line-height:1.6; border-top:1px solid var(--border); padding-top:14px;}
 
 .placeholder{padding:60px 20px; text-align:center; color:var(--text-soft);}
@@ -363,15 +365,16 @@ tbody tr:last-child td{border-bottom:none;}
       <h3>Gerar predição individual</h3>
       <div class="predict-box">
         <select id="predictSelect"></select>
-        <button class="btn prever" data-llm="1">Predição com LLM</button>
-        <button class="btn sec prever" data-llm="0">Predição só com regras</button>
+        <button class="btn" id="predictBtn">Gerar predição</button>
       </div>
+      <p class="erro-msg" id="predictErro"></p>
       <div class="predict-result" id="predictResult">
         <div class="gauge-row">
           <span class="gauge-badge" id="gaugeBadge">—</span>
           <span style="font-size:13px;color:var(--text-soft)" id="gaugeText"></span>
         </div>
         <div id="factorsList"></div>
+        <div id="analiseLLM"></div>
       </div>
     </div>
   </section>
@@ -647,7 +650,9 @@ function fillPredictSelect(){
   if(alunos.length===0){
     sel.innerHTML = `<option value="">Nenhum aluno cadastrado</option>`;
     sel.disabled = true;
-    document.querySelectorAll("#sec-predicoes .prever").forEach(b => b.disabled = true);
+    document.getElementById("predictBtn").disabled = true;
+    document.getElementById("predictBtn").style.opacity = ".5";
+    document.getElementById("predictBtn").style.cursor = "not-allowed";
     return;
   }
   alunos.forEach((a,i)=>{
@@ -659,26 +664,27 @@ let perfil = null;
 const fmt = v => v==null ? "—" : Number(v).toFixed(1);
 const SITUACAO = {APROVADO:["Aprovado","baixo"], EM_CURSO:["Em curso","neutro"],
   REPROVADO_NOTA:["Reprovado por nota","alto"], REPROVADO_FREQUENCIA:["Reprovado por frequência","alto"]};
-const esc = t => String(t ?? "").replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);  // texto da LLM não vira HTML
-// regras x LLM lado a lado, o comentário da LLM e o aviso quando ela não respondeu
-const resumoIA = r => `
-  <div class="factor"><span>Só regras (pontuação ${r.score})</span><span class="badge ${r.risco_regras}">${riskLabel[r.risco_regras]}</span></div>
-  <div class="factor"><span>Com LLM${r.modelo ? ` (${esc(r.modelo)})` : ""}</span>${r.risco_ia
-    ? `<span class="badge ${r.risco_ia}">${riskLabel[r.risco_ia]}</span>` : `<span class="vazio">${r.aviso ? "indisponível" : "não usada"}</span>`}</div>
-  ${r.comentario ? `<p style="font-size:13px;margin:10px 0">${esc(r.comentario)}</p>` : ""}
-  ${r.aviso ? `<p class="erro-msg">${esc(r.aviso)}</p>` : ""}`;
-async function gerarPredicao(matricula, botao){
-  const botoes = botao.parentElement.querySelectorAll(".prever"), texto = botao.textContent;
-  botoes.forEach(b => b.disabled = true); botao.textContent = "Gerando…";
-  try{ return await api(`/api/alunos/${matricula}/predicao?llm=${botao.dataset.llm}`,{method:"POST"}); }
-  finally{ botoes.forEach(b => b.disabled = false); botao.textContent = texto; }
-}
 const quando = t => new Date(t.replace(" ","T")+"Z").toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});  // banco grava em UTC
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// quem decidiu (LLM ou regras), o comentário, os ajustes das regras duras e o aviso se a LLM estava fora do ar
+const analiseHtml = r => `<div class="analise">
+  <div class="origem">${r.origem==="llm" ? `Análise da LLM (${esc(r.modelo)}) · regras: ${riskLabel[r.nivel_regras]} · LLM: ${riskLabel[r.nivel_llm]}` : "Calculado só pelas regras"}</div>
+  ${r.comentario ? `<p>${esc(r.comentario)}</p>` : ""}
+  ${(r.ajustes||[]).map(t=>`<p class="vazio">Regra dura: ${esc(t)}.</p>`).join("")}
+  ${r.aviso ? `<p class="vazio">LLM indisponível; valeu o cálculo por regras (${esc(r.aviso)}).</p>` : ""}</div>`;
+// a predição gerada vira o risco mostrado no painel e na tabela, sem recarregar a página
+function atualizaRisco(matricula, r){
+  const a = alunos.find(x=>x.matricula===matricula);
+  if(!a) return;
+  a.risco = r.risco; a.risco_origem = r.origem;
+  renderPainel(); renderTable();
+}
 
-async function mostrarFicha(matricula, el, novo=null){
+async function mostrarFicha(matricula, el, resultado=null){
   el.innerHTML = `<p class="vazio">Carregando…</p>`;
   try{
     const [a, hist] = await Promise.all([api(`/api/alunos/${matricula}`), api(`/api/alunos/${matricula}/predicao`)]);
+    const fatores = resultado?.fatores;  // só logo depois de gerar uma predição
     const semestres = [...new Set(a.disciplinas.map(d=>d.semestre))].sort().reverse();  // mais recente primeiro
     el.innerHTML = `
       <div class="ficha-head">
@@ -692,14 +698,14 @@ async function mostrarFicha(matricula, el, novo=null){
         <div class="stat-card"><div class="lbl">Distância do campus</div><div class="num">${a.distancia==null?"—":a.distancia+" km"}</div></div>
       </div>
       <h4>Histórico de risco</h4>
-      ${perfil!=="aluno" ? `<div class="predict-box"><button class="btn prever" data-llm="1">Predição com LLM</button>
-        <button class="btn sec prever" data-llm="0">Predição só com regras</button></div>` : ""}
-      ${novo ? `<div style="margin-top:10px">${resumoIA(novo)}${novo.fatores.map(f=>`
+      ${perfil!=="aluno" ? `<button class="btn" id="fichaPrever">Gerar predição</button>` : ""}
+      ${fatores ? `<div style="margin-top:10px">${fatores.map(f=>`
         <div class="factor"><span>${f.descricao}</span><span class="tag ${f.negativo?"neg":"ok"}">${f.negativo?"Fator de risco":"Regular"}</span></div>`).join("")}</div>` : ""}
+      ${resultado ? analiseHtml(resultado) : ""}
       <div style="margin-top:8px">${hist.length ? hist.map(h=>`
         <div class="hist-row"><span>${quando(h.criado_em)}</span>
-          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"}</span></span></div>
-        ${h.comentario_predicao ? `<p class="vazio" style="margin:0 0 8px">${esc(h.comentario_predicao)}</p>` : ""}`).join("")
+          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"} · ${h.origem==="llm" ? "LLM" : "regras"}</span></span></div>
+        ${h.comentario_predicao ? `<div class="vazio hist-com">${esc(h.comentario_predicao)}</div>` : ""}`).join("")
         : `<p class="vazio">Nenhuma predição gerada ainda.</p>`}</div>
       ${semestres.map(sem=>`
         <h4>Semestre ${sem}</h4>
@@ -712,10 +718,12 @@ async function mostrarFicha(matricula, el, novo=null){
               <td><b>${fmt(d.nota_final ?? d.nota_parcial)}</b></td><td>${d.frequencia_percentual==null?"—":d.frequencia_percentual+"%"}</td>
               <td><span class="badge ${cor}">${txt}</span></td></tr>`;}).join("")}</tbody>
         </table></div>`).join("") || `<h4>Disciplinas</h4><p class="vazio">Nenhuma disciplina registrada.</p>`}`;
-    el.querySelectorAll(".prever").forEach(b => b.addEventListener("click", async ()=>{
-      try{ mostrarFicha(matricula, el, await gerarPredicao(matricula, b)); }
-      catch(err){ b.parentElement.insertAdjacentHTML("afterend", `<p class="erro-msg">${esc(err.message)}</p>`); }
-    }));
+    const prever = el.querySelector("#fichaPrever");
+    if(prever) prever.addEventListener("click", async ()=>{
+      prever.disabled = true; prever.textContent = "Gerando…";
+      try{ const r = await api(`/api/alunos/${matricula}/predicao`,{method:"POST"}); atualizaRisco(matricula, r); mostrarFicha(matricula, el, r); }
+      catch(err){ prever.disabled = false; prever.textContent = "Gerar predição"; prever.insertAdjacentHTML("afterend", `<p class="erro-msg">${err.message}</p>`); }
+    });
   }catch(err){ el.innerHTML = `<p class="erro-msg">${err.message}</p>`; }
 }
 
@@ -731,20 +739,27 @@ function closeModal(){ document.getElementById("overlay").classList.remove("show
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
-document.querySelectorAll("#sec-predicoes .prever").forEach(btn => btn.addEventListener("click",async ()=>{
+document.getElementById("predictBtn").addEventListener("click",async ()=>{
   if(alunos.length===0){ return; }
   const a = alunos[document.getElementById("predictSelect").value];
-  const r = await gerarPredicao(a.matricula, btn);
+  const botao = document.getElementById("predictBtn"), erro = document.getElementById("predictErro");
+  botao.disabled = true; botao.textContent = "Gerando…"; erro.textContent = "";  // a LLM leva alguns segundos
+  let r;
+  try{ r = await api(`/api/alunos/${a.matricula}/predicao`,{method:"POST"}); }
+  catch(err){ erro.textContent = err.message; return; }
+  finally{ botao.disabled = false; botao.textContent = "Gerar predição"; }
+  atualizaRisco(a.matricula, r);
   const {risco, fatores} = r;
   const badge = document.getElementById("gaugeBadge");
   badge.textContent = riskLabel[risco]+" risco";
   badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
   badge.style.color = riskColor[risco];
   document.getElementById("gaugeText").textContent = "Classificação para "+a.nome;
-  document.getElementById("factorsList").innerHTML = resumoIA(r) + fatores.map(({descricao:label,negativo:neg})=>`
+  document.getElementById("factorsList").innerHTML = fatores.map(({descricao:label,negativo:neg})=>`
     <div class="factor"><span>${label}</span><span class="tag ${neg?'neg':'ok'}">${neg?'Fator de risco':'Regular'}</span></div>`).join("");
+  document.getElementById("analiseLLM").innerHTML = analiseHtml(r);
   document.getElementById("predictResult").classList.add("show");
-}));
+});
 
 Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   perfil = eu.perfil;

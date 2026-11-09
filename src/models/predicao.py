@@ -1,23 +1,59 @@
-"""Risco de evasão: as regras do cálculo, a avaliação da LLM (Ollama) e o histórico (tabela predicao_ia)."""
+"""Risco de evasão: regras do cálculo, opinião da LLM e histórico de predições (tabela predicao_ia).
+
+Ordem de uma predição: pontuação por regras -> a LLM (Ollama) opina, sem se afastar muito do nível das regras
+-> as regras duras têm a palavra final. Sem LLM disponível vale o nível das regras e a predição fica marcada
+com origem 'regras'. O funcionamento completo está no readme.md (seção Predição com LLM).
+"""
+import hashlib
 import json
-import os
-import urllib.request
 
-from models.banco import consultar, transacao
+from models import alunos, llm
+from models.banco import ErroModelo, consultar, transacao
 
-# LLM local no Ollama (`ollama serve` + `ollama pull qwen3:4b`): os dados dos alunos não saem da máquina.
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-OLLAMA_MODELO = os.environ.get("OLLAMA_MODELO", "qwen3:4b")
-OLLAMA_TIMEOUT = 120  # segundos; o primeiro pedido carrega o modelo na memória
+NIVEIS = ("baixo", "medio", "alto")
+ROTULO = {"baixo": "baixo", "medio": "médio", "alto": "alto"}
 
-# pesos fixos (os do readme)
+FREQ_CORTE = 75          # frequência média abaixo disso força o risco "alto" (regra dura)
+HISTORICO_MINIMO = 8     # registros acadêmicos mínimos para o aluno poder ser "alto" (um semestre tem 5)
+LLM_PASSO_MAXIMO = 1     # quantos níveis a LLM pode se afastar do nível das regras (2 = sem limite)
+FALHAS_SEGUIDAS_MAX = 3  # no recálculo em lote, a LLM falhar tantas vezes seguidas interrompe tudo
+
+# pesos fixos (os do readme); a semana 05 deixa configurável
 REGRAS = [
-    ("freq", lambda v: v < 75, 2, "Frequência abaixo de 75%"),
+    ("freq", lambda v: v < FREQ_CORTE, 2, f"Frequência abaixo de {FREQ_CORTE}%"),
     ("nota", lambda v: v < 60, 2, "Nota média abaixo de 60"),
     ("reprovacoes", lambda v: v > 0, 1, "Reprovações no histórico"),
     ("reclamacoes", lambda v: v > 0, 1, "Reclamações no feedback"),
     ("distancia", lambda v: v > 30, 1, "Mora a mais de 30 km do campus"),
 ]
+
+
+# ---------- regras ----------
+
+def _limitar(nivel, piso, teto):
+    """Mantém o nível entre o piso e o teto."""
+    return NIVEIS[min(max(NIVEIS.index(nivel), NIVEIS.index(piso)), NIVEIS.index(teto))]
+
+
+def limites_duros(aluno):
+    """Piso e teto das regras duras, que valem acima da pontuação e da LLM.
+    Histórico curto: no máximo "médio" (pouco dado para cravar "alto"). Frequência baixa: no mínimo "alto", ou
+    "médio" se o histórico for curto (a regra do histórico vence). Campo sem dado não aplica a regra."""
+    historico_curto = aluno.get("registros") is not None and aluno["registros"] < HISTORICO_MINIMO
+    freq_baixa = aluno.get("freq") is not None and aluno["freq"] < FREQ_CORTE
+    teto = "medio" if historico_curto else "alto"
+    return (teto if freq_baixa else "baixo"), teto
+
+
+def aplicar_regras_duras(aluno, nivel):
+    """Devolve (nível final, frases que explicam o ajuste; lista vazia se não houve)."""
+    piso, teto = limites_duros(aluno)
+    final = _limitar(nivel, piso, teto)
+    if final == nivel:
+        return final, []
+    if NIVEIS.index(final) > NIVEIS.index(nivel):
+        return final, [f"Frequência abaixo de {FREQ_CORTE}%: risco no mínimo {ROTULO[final]}"]
+    return final, [f"Menos de {HISTORICO_MINIMO} registros no histórico: risco limitado a {ROTULO[final]}"]
 
 
 def calcular_risco(aluno):
@@ -28,81 +64,176 @@ def calcular_risco(aluno):
         negativo = ruim(aluno[campo])
         score += peso * negativo
         fatores.append({"descricao": descricao, "negativo": negativo})
-    risco = "alto" if score >= 4 else "medio" if score >= 2 else "baixo"
-    return {"risco": risco, "score": score, "fatores": fatores}
+    pontuacao = "alto" if score >= 4 else "medio" if score >= 2 else "baixo"
+    risco, ajustes = aplicar_regras_duras(aluno, pontuacao)
+    return {"risco": risco, "score": score, "fatores": fatores, "ajustes": ajustes}
 
 
-INSTRUCOES = """Você avalia o risco de evasão de um aluno de graduação. Recebe os indicadores, as disciplinas \
-(notas de 0 a 100, frequência em %), os comentários do aluno e a classificação feita por regras fixas. \
-Considere a tendência entre semestres, disciplinas em curso, reprovações repetidas e o tom dos comentários. \
-Pode concordar ou discordar das regras. Responda em português, comentário com no máximo 3 frases, \
-citando os fatores que pesaram. Responda só com um JSON {"risco": "baixo" | "medio" | "alto", "comentario": "..."}."""
+# ---------- LLM ----------
 
-FORMATO = {"type": "object", "required": ["risco", "comentario"], "properties": {
-    "risco": {"type": "string", "enum": ["baixo", "medio", "alto"]}, "comentario": {"type": "string"}}}
+def _por_semestre(matricula):
+    """Nota média, frequência média e reprovações de cada semestre: a tendência que a LLM enxerga."""
+    semestres = {}
+    for d in alunos.disciplinas(matricula):
+        s = semestres.setdefault(d["semestre"], {"notas": [], "freqs": [], "reprovacoes": 0})
+        nota = d["nota_final"] if d["nota_final"] is not None else d["nota_parcial"]
+        if nota is not None:
+            s["notas"].append(nota)
+        if d["frequencia_percentual"] is not None:
+            s["freqs"].append(d["frequencia_percentual"])
+        s["reprovacoes"] += d["situacao"].startswith("REPROVADO")
 
+    def media(valores):
+        return round(sum(valores) / len(valores), 1) if valores else None
 
-def contexto(aluno, disciplinas, comentarios, regras):
-    """Texto que vai para a LLM. Sem nome nem endereço: só a matrícula e os indicadores (LGPD)."""
-    linhas = [f"Matrícula {aluno['matricula']}, {aluno['curso']}, {aluno['periodo']}º período, situação {aluno['situacao']}.",
-              f"Frequência média {aluno['freq']}%, nota média {aluno['nota']}, {aluno['reprovacoes']} reprovações, "
-              f"distância do campus {aluno['distancia']} km.", "", "Disciplinas (semestre | disciplina | tentativa | "
-              "N1 | N2 | projeto | nota | frequência | situação):"]
-    linhas += [f"{d['semestre']} | {d['disciplina']} | {d['tentativa']} | {d['nota_n1']} | {d['nota_n2']} | "
-               f"{d['nota_projeto']} | {d['nota_final'] if d['nota_final'] is not None else d['nota_parcial']} | "
-               f"{d['frequencia_percentual']} | {d['situacao']}" for d in disciplinas] or ["nenhuma"]
-    linhas += ["", "Comentários do aluno (alvo, avaliação 1 a 5, texto):"]
-    linhas += [f"{c['alvo']}, {c['avaliacao_curso']}, {c['comentarios'] or ''}" for c in comentarios] or ["nenhum"]
-    linhas += ["", f"Regras fixas: risco {regras['risco']} (pontuação {regras['score']}). Fatores: "
-               + "; ".join(f"{f['descricao']}: {'sim' if f['negativo'] else 'não'}" for f in regras["fatores"])]
-    return "\n".join(linhas)
+    return [{"semestre": sem, "nota_media": media(s["notas"]), "frequencia_media": media(s["freqs"]),
+             "reprovacoes": s["reprovacoes"]} for sem, s in sorted(semestres.items())]
 
 
-def avaliar_llm(texto):
-    """Pede a classificação para a LLM. Devolve {risco, comentario}; erro de rede ou resposta fora do formato
-    vira exceção (quem chama decide cair só nas regras)."""
-    corpo = {"model": OLLAMA_MODELO, "stream": False, "format": FORMATO, "think": False, "keep_alive": "30m", "options": {"temperature": 0},
-             # tudo numa mensagem só: com papel "system" alguns modelos ignoram o format e respondem texto solto
-             "messages": [{"role": "user", "content": INSTRUCOES + "\n\n" + texto}]}
-    pedido = urllib.request.Request(OLLAMA_HOST.rstrip("/") + "/api/chat", json.dumps(corpo).encode(),
-                                    {"Content-Type": "application/json"})
-    with urllib.request.urlopen(pedido, timeout=OLLAMA_TIMEOUT) as r:
-        resposta = json.loads(json.loads(r.read())["message"]["content"])
-    if resposta.get("risco") not in ("baixo", "medio", "alto"):
-        raise ValueError(f"risco inválido na resposta da LLM: {resposta.get('risco')!r}")
-    return {"risco": resposta["risco"], "comentario": str(resposta.get("comentario", "")).strip()}
+def entrada_llm(aluno, base):
+    """Contexto enviado à LLM. Anonimizado: sem nome, matrícula, endereço ou outro identificador; só indicadores,
+    resumo por semestre, comentários do aluno (texto livre, tratado como dado) e a pré-análise das regras."""
+    return {
+        "periodo_atual": aluno["periodo"],
+        "indicadores": {
+            "frequencia_media": aluno["freq"], "nota_media": aluno["nota"], "reprovacoes": aluno["reprovacoes"],
+            "distancia_ate_o_campus_km": aluno["distancia"], "registros_academicos": aluno["registros"],
+            "reclamacoes_no_feedback": aluno["reclamacoes"],
+        },
+        "por_semestre": _por_semestre(aluno["matricula"]),
+        "feedback": [{"alvo": f["alvo"], "avaliacao": f["avaliacao"], "comentario": (f["comentario"] or "")[:300]}
+                     for f in alunos.comentarios(aluno["matricula"])],
+        "pre_analise_regras": {
+            "nivel": base["risco"], "pontos": base["score"], "ajustes": base["ajustes"],
+            "fatores_negativos": [f["descricao"] for f in base["fatores"] if f["negativo"]],
+        },
+    }
 
 
-def prever(aluno, disciplinas, comentarios, usar_llm=True):
-    """Regras + LLM. risco final é o da LLM; sem LLM (pedido assim, ou fora do ar) fica o das regras.
-    Se a LLM foi pedida e não respondeu, vem um aviso."""
-    regras = calcular_risco(aluno)
-    resultado = regras | {"risco_regras": regras["risco"], "risco_ia": None, "comentario": None,
-                          "modelo": None, "aviso": None}
-    if not usar_llm:
-        return resultado
+def hash_entrada(contexto):
+    """Resumo da entrada, com modelo e versão do prompt. Igual ao da última predição = nada mudou."""
+    bruto = json.dumps({"modelo": llm.MODELO, "prompt": llm.PROMPT_VERSAO, "contexto": contexto},
+                       sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
+
+
+def _decidir(aluno, base, nivel_llm):
+    """Nível final: a LLM opina, mas só se afasta LLM_PASSO_MAXIMO níveis do das regras; depois as regras duras
+    são aplicadas de novo. Devolve (nível, ajustes novos)."""
+    ancora = NIVEIS.index(base["risco"])
+    indice = min(max(NIVEIS.index(nivel_llm), ancora - LLM_PASSO_MAXIMO), ancora + LLM_PASSO_MAXIMO)
+    return aplicar_regras_duras(aluno, NIVEIS[indice])
+
+
+def analisar(matricula, aluno, forcar=True):
+    """Gera e guarda a predição do aluno (regras + LLM). aluno: o resumo de alunos.buscar().
+    Se a LLM falhar, guarda a das regras e devolve o motivo em "aviso". forcar=False reaproveita a última predição
+    da LLM quando a entrada não mudou (é o que o recálculo em lote usa); o botão de gerar predição força."""
+    base = calcular_risco(aluno)
+    contexto = entrada_llm(aluno, base)
+    entrada = hash_entrada(contexto)
+    anterior = ultima(matricula)
+    if not forcar and anterior and anterior["origem"] == "llm" and anterior["entrada_hash"] == entrada:
+        return _como_resultado(anterior) | {"reaproveitada": True}
+    resultado = {"risco": base["risco"], "score": base["score"], "fatores": base["fatores"],
+                 "ajustes": base["ajustes"], "comentario": None, "origem": "regras", "modelo": None,
+                 "nivel_regras": base["risco"], "nivel_llm": None}
     try:
-        ia = avaliar_llm(contexto(aluno, disciplinas, comentarios, regras))
-    except Exception as e:  # LLM é complemento: a predição por regras sai de qualquer jeito
-        resultado["aviso"] = f"LLM indisponível ({type(e).__name__}: {e}); risco calculado só pelas regras"
-        return resultado
-    return resultado | {"risco": ia["risco"], "risco_ia": ia["risco"], "comentario": ia["comentario"],
-                        "modelo": OLLAMA_MODELO}
+        opiniao = llm.avaliar(contexto)
+    except ErroModelo as e:
+        resultado["aviso"] = e.mensagem
+    else:
+        risco, ajustes = _decidir(aluno, base, opiniao["nivel"])
+        resultado.update(risco=risco, ajustes=list(dict.fromkeys(base["ajustes"] + ajustes)),
+                         comentario=opiniao["comentario"], origem="llm", modelo=opiniao["modelo"],
+                         nivel_llm=opiniao["nivel"])
+    salvar(matricula, resultado, entrada if resultado["origem"] == "llm" else None)
+    return resultado
 
 
-def salvar(matricula, resultado):
-    """Cada cálculo vira uma linha nova no histórico (nada é sobrescrito). score é sempre o das regras."""
+def recalcular_todos(forcar=False, ao_progredir=None):
+    """Analisa todos os alunos. Quem não mudou desde a última análise da LLM é pulado (a não ser com forcar).
+    Confere o Ollama antes de começar (503 se estiver fora) e para se a LLM falhar várias vezes seguidas.
+    ao_progredir(resumo) é chamada a cada aluno, para mostrar o andamento."""
+    llm.verificar()
+    todos = alunos.listar({"perfil": "secretaria"})
+    resumo = {"total": len(todos), "feitos": 0, "puladas": 0, "falhas": 0, "interrompido": False}
+    seguidas = 0
+    for aluno in todos:
+        resultado = analisar(aluno["matricula"], aluno, forcar=forcar)
+        if resultado.get("reaproveitada"):
+            resumo["puladas"] += 1
+        elif resultado.get("aviso"):
+            resumo["falhas"] += 1
+            seguidas += 1
+        else:
+            resumo["feitos"] += 1
+            seguidas = 0
+        if ao_progredir:
+            ao_progredir(dict(resumo))
+        if seguidas >= FALHAS_SEGUIDAS_MAX:
+            resumo["interrompido"] = True
+            break
+    return resumo
+
+
+# ---------- histórico ----------
+
+def salvar(matricula, resultado, entrada_hash=None):
+    """Cada cálculo vira uma linha nova no histórico (nada é sobrescrito)."""
+    detalhes = json.dumps({c: resultado.get(c) for c in ("fatores", "ajustes", "nivel_regras", "nivel_llm")},
+                          ensure_ascii=False)
     with transacao() as con:
         con.execute("""
-            INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score, comentario_predicao)
-            SELECT matricula_curso_id, ?, ?, ? FROM matriculas_curso JOIN alunos USING (aluno_id)
+            INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score, comentario_predicao,
+                                     origem, modelo, entrada_hash, detalhes)
+            SELECT matricula_curso_id, ?, ?, ?, ?, ?, ?, ? FROM matriculas_curso JOIN alunos USING (aluno_id)
              WHERE codigo_academico = ?""",
-            (resultado["risco"], resultado["score"], resultado.get("comentario"), matricula))
+                    (resultado["risco"], resultado["score"], resultado.get("comentario"),
+                     resultado.get("origem", "regras"), resultado.get("modelo"), entrada_hash, detalhes, matricula))
+
+
+def _linhas(matricula, limite=-1):
+    linhas = consultar("""
+        SELECT p.predicao_id AS id, p.criado_em, p.nivel_risco AS risco, p.score, p.comentario_predicao,
+               p.alterada_por, p.justificativa, p.origem, p.modelo, p.entrada_hash, p.detalhes
+          FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
+         WHERE a.codigo_academico = ? ORDER BY p.predicao_id DESC LIMIT ?""", matricula, limite)
+    for linha in linhas:
+        linha["detalhes"] = json.loads(linha["detalhes"]) if linha["detalhes"] else None
+    return linhas
 
 
 def historico(matricula):
-    return consultar("""
-        SELECT p.predicao_id AS id, p.criado_em, p.nivel_risco AS risco, p.score, p.comentario_predicao,
-               p.alterada_por, p.justificativa
+    return [{c: v for c, v in linha.items() if c != "entrada_hash"} for linha in _linhas(matricula)]
+
+
+def ultima(matricula):
+    """Última predição do aluno (com o hash da entrada) ou None."""
+    achadas = _linhas(matricula, 1)
+    return achadas[0] if achadas else None
+
+
+def ultimas_por_aluno():
+    """Última predição de cada aluno que já tem alguma: {matricula: {risco, origem, criado_em}}. Uma consulta só."""
+    linhas = consultar("""
+        SELECT a.codigo_academico AS matricula, p.nivel_risco AS risco, p.origem, p.criado_em
           FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
-         WHERE a.codigo_academico = ? ORDER BY p.predicao_id DESC""", matricula)
+         WHERE p.predicao_id = (SELECT max(predicao_id) FROM predicao_ia
+                                 WHERE matricula_curso_id = p.matricula_curso_id)""")
+    return {linha["matricula"]: linha for linha in linhas}
+
+
+def risco_atual(aluno, ultima_predicao):
+    """Risco que as telas mostram: o da última predição guardada; sem nenhuma, o calculado pelas regras."""
+    if ultima_predicao:
+        return {"risco": ultima_predicao["risco"], "risco_origem": ultima_predicao["origem"]}
+    return {"risco": calcular_risco(aluno)["risco"], "risco_origem": "regras"}
+
+
+def _como_resultado(linha):
+    detalhes = linha["detalhes"] or {}
+    return {"risco": linha["risco"], "score": linha["score"], "fatores": detalhes.get("fatores", []),
+            "ajustes": detalhes.get("ajustes", []), "comentario": linha["comentario_predicao"],
+            "origem": linha["origem"], "modelo": linha["modelo"], "nivel_regras": detalhes.get("nivel_regras"),
+            "nivel_llm": detalhes.get("nivel_llm")}

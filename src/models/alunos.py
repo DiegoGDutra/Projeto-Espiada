@@ -17,7 +17,9 @@ SELECT a.codigo_academico AS matricula, a.nome_sintetico AS nome, c.nome AS curs
        (SELECT count(*) FROM registros_academicos r
          WHERE r.matricula_curso_id = mc.matricula_curso_id AND r.situacao LIKE 'REPROVADO%') AS reprovacoes,
        (SELECT count(*) FROM feedback f
-         WHERE f.aluno_id = a.aluno_id AND f.avaliacao_curso <= 2) AS reclamacoes
+         WHERE f.aluno_id = a.aluno_id AND f.avaliacao_curso <= 2) AS reclamacoes,
+       (SELECT count(*) FROM registros_academicos r
+         WHERE r.matricula_curso_id = mc.matricula_curso_id) AS registros
   FROM alunos a JOIN matriculas_curso mc USING (aluno_id) JOIN cursos c USING (curso_id)
   LEFT JOIN enderecos_alunos e USING (aluno_id) LEFT JOIN cidades ci USING (cidade_id)
 """
@@ -48,6 +50,15 @@ def buscar(matricula, usuario):
 
 def existe(matricula):
     return bool(consultar("SELECT 1 FROM alunos WHERE codigo_academico = ?", matricula))
+
+
+def comentarios(matricula, limite=3):
+    """Últimos feedbacks do aluno (nota e texto livre), do mais novo para o mais antigo. Vão para a LLM só como dado."""
+    return consultar("""
+        SELECT f.alvo, f.avaliacao_curso AS avaliacao, f.comentarios AS comentario
+          FROM feedback f JOIN alunos a USING (aluno_id)
+         WHERE a.codigo_academico = ? AND (f.avaliacao_curso IS NOT NULL OR coalesce(f.comentarios, '') <> '')
+         ORDER BY f.feedback_id DESC LIMIT ?""", matricula, limite)
 
 
 def disciplinas(matricula):
