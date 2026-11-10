@@ -11,7 +11,7 @@ import os
 from models.banco import ErroModelo
 
 URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODELO = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+MODELO = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
 TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT", "120"))  # a 1ª chamada carrega o modelo na memória e demora
 PROMPT_VERSAO = "1"  # mude ao editar o PROMPT: entra no hash, e as predições antigas voltam a ser recalculadas
 NIVEIS = ("baixo", "medio", "alto")

@@ -11,5 +11,7 @@ __pycache__/
 
 *.pptx
 
+*.docx
+
 # Graphify output
 graphify-out/
