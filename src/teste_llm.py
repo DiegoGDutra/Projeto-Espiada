@@ -51,7 +51,7 @@ c = usa(ClienteFalso('{"nivel": "alto", "comentario": " Frequência baixa e qued
 r = llm.avaliar({"periodo_atual": 3})
 assert r == {"nivel": "alto", "comentario": "Frequência baixa e queda de nota.", "modelo": llm.MODELO}, r
 pedido = c.chamadas[0]
-assert pedido["model"] == llm.MODELO == "qwen3:8b" and pedido["think"] is False
+assert pedido["model"] == llm.MODELO == "qwen3:4b" and pedido["think"] is False
 assert pedido["options"]["temperature"] == 0 and pedido["options"]["seed"] == 42
 assert pedido["keep_alive"] == llm.MANTER_CARREGADO
 assert pedido["format"]["properties"]["nivel"]["enum"] == ["baixo", "medio", "alto"]
@@ -70,7 +70,7 @@ try:
     llm.verificar()
     raise AssertionError("modelo não baixado devia dar 503")
 except ErroModelo as e:
-    assert e.status == 503 and "ollama pull qwen3:8b" in e.mensagem, e.mensagem
+    assert e.status == 503 and "ollama pull qwen3:4b" in e.mensagem, e.mensagem
 usa(ClienteFalso("{}"))
 llm.verificar()  # servidor responde e o modelo existe: não levanta nada
 del llm._cliente  # volta ao cliente de verdade; sem o pacote instalado dá 503 em vez de quebrar o sistema

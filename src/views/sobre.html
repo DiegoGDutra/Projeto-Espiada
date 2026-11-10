@@ -174,15 +174,15 @@
     <div role="tabpanel" id="sobre" aria-labelledby="aba-sobre">
       <h2>Sobre o projeto</h2>
       <section>
-        <p>O <strong>Espiada</strong> é a implementação do <strong>SIMPA</strong>, um sistema de monitoramento e predição de risco de evasão acadêmica. Ele reúne notas, frequência e perfil dos alunos, calcula um nível de risco (baixo, médio ou alto) e mostra os alunos que precisam de atenção, para que a coordenação e os professores possam agir antes da evasão acontecer.</p>
-        <p class="aviso">Este é um <strong>projeto acadêmico</strong>, sem fins comerciais. Todos os alunos exibidos vêm de um <strong>conjunto de dados sintético</strong> fornecido à turma: nenhum registro representa uma pessoa real.</p>
+        <p>O <strong>Espiada</strong> (SIMPA) é um sistema de monitoramento e predição de risco de evasão acadêmica. Ele reúne notas, frequência e perfil dos alunos, calcula um nível de risco (baixo, médio ou alto) e mostra os alunos que precisam de atenção, para que a coordenação e os professores possam agir antes da evasão acontecer.</p>
+        <p class="aviso">Este é um <strong>projeto acadêmico</strong>, sem fins comerciais. Todos os alunos exibidos vêm de um <strong>conjunto de dados sintético</strong>: nenhum registro representa uma pessoa real.</p>
       </section>
       <section>
         <h3>Ficha técnica</h3>
         <div class="tabela">
           <table>
             <tr><th>Projeto</th><td>Espiada — SIMPA</td></tr>
-            <tr><th>Versão</th><td>Em desenvolvimento — entrega final prevista para 13/12/2026</td></tr>
+            <tr><th>Versão</th><td>Em desenvolvimento</td></tr>
             <tr><th>Ano / semestre</th><td>2026/2</td></tr>
             <tr><th>Tecnologias</th><td>Python com Flask, SQLite, HTML, CSS e JavaScript; arquitetura MVC</td></tr>
             <tr><th>Dados</th><td>Dataset sintético: 120 alunos de Engenharia de Software, semestres 2023-1 a 2026-2</td></tr>
@@ -317,7 +317,8 @@
       <section>
         <h3>6. Compartilhamento</h3>
         <p>Os dados não são vendidos nem compartilhados com terceiros. Ficam no servidor do próprio sistema.</p>
-        <p>Está prevista a integração com um modelo de linguagem (LLM) em nuvem para apoiar a predição. Quando ela entrar em funcionamento, esta seção vai informar o serviço usado e quais dados são enviados, de preferência anonimizados.</p>
+        <p>A predição usa um modelo de linguagem (LLM), o <strong>qwen3:4b</strong>, rodando no próprio servidor pelo Ollama: nenhum dado é enviado para a nuvem. Ele recebe os indicadores acadêmicos, o resumo por semestre e os comentários do aluno, sem nome, matrícula ou endereço.</p>
+        <p>A LLM foi usada apenas em <strong>testes locais</strong>. Os dados enviados a ela <strong>ainda não passaram por tratamento de acordo com a LGPD</strong>.</p>
       </section>
       <section>
         <h3>7. Armazenamento e segurança</h3>

@@ -18,7 +18,7 @@ HISTORICO_MINIMO = 8     # registros acadêmicos mínimos para o aluno poder ser
 LLM_PASSO_MAXIMO = 1     # quantos níveis a LLM pode se afastar do nível das regras (2 = sem limite)
 FALHAS_SEGUIDAS_MAX = 3  # no recálculo em lote, a LLM falhar tantas vezes seguidas interrompe tudo
 
-# pesos fixos (os do readme); a semana 05 deixa configurável
+# pesos fixos (os do readme); ainda não são configuráveis
 REGRAS = [
     ("freq", lambda v: v < FREQ_CORTE, 2, f"Frequência abaixo de {FREQ_CORTE}%"),
     ("nota", lambda v: v < 60, 2, "Nota média abaixo de 60"),

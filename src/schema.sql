@@ -1,5 +1,5 @@
 -- Banco do SIMPA (SQLite).
--- Parte 1: tabelas do dataset sintético fornecido (dados/LEIA-ME.md), idênticas ao schema_sqlite.sql dele,
+-- Parte 1: tabelas do dataset sintético (pasta dados/), com a mesma estrutura dele,
 -- mais os CHECK de notas/frequência. Os dados entram só pelo src/importar.py, ninguém edita à mão.
 -- Parte 2: tabelas do próprio sistema (login, feedback, histórico de predições).
 
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS registros_academicos (
   UNIQUE (matricula_curso_id, turma_id, tentativa)
 );
 
--- Risco já calculado pelo dataset. Não usar como entrada da predição (vazamento, ver dados/LEIA-ME.md).
+-- Risco já calculado pelo dataset. Não usar como entrada da predição (vazamento: é a resposta pronta).
 CREATE TABLE IF NOT EXISTS indicadores_risco (
   indicador_id INTEGER PRIMARY KEY,
   matricula_curso_id INTEGER NOT NULL REFERENCES matriculas_curso(matricula_curso_id),

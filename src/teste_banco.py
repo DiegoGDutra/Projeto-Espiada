@@ -44,7 +44,7 @@ assert con.execute("SELECT DISTINCT origem FROM predicao_ia").fetchall()[0][0] =
 assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem) VALUES (1, 'alto', 'chute')"), \
     "origem só regras ou llm"
 con.execute("""INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem, modelo, entrada_hash, detalhes)
-               VALUES (1, 'alto', 'llm', 'qwen3:8b', 'abc', '{}')""")
+               VALUES (1, 'alto', 'llm', 'qwen3:4b', 'abc', '{}')""")
 
 # banco criado antes das colunas novas: criar_banco acrescenta e as linhas antigas ficam com origem 'regras'
 antigo = Path(tempfile.mkdtemp()) / "antigo.db"

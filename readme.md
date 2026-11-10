@@ -8,9 +8,9 @@ Sistema de monitoramento e predição de risco de evasão acadêmica. Flask + SQ
 |---|---|
 | Back-end | Python 3.10+ com Flask |
 | Banco de dados | SQLite (`src/funcionaai.db`), tabelas em `src/schema.sql` |
-| Dados | dataset sintético fornecido (`dados/`), importado por `src/importar.py` |
+| Dados | dataset sintético (`dados/`), importado por `src/importar.py` |
 | Front-end | HTML + CSS + JavaScript puro (`src/views/`), fonte Inter servida pelo próprio sistema (`src/static/`); gráficos feitos à mão em CSS e SVG, sem biblioteca |
-| Predição (semana 06) | LLM **local** do Ollama (`qwen3:8b`, 8 bilhões de parâmetros), sem chat: o prompt é fixo e a resposta é um JSON validado. Instalação e uso em [Predição com LLM](#predição-com-llm-ollama) |
+| Predição | regras fixas + LLM **local** do Ollama (**`qwen3:4b` nos nossos testes locais**; qualquer modelo com pelo menos 2 bilhões de parâmetros serve), sem chat: o prompt é fixo e a resposta é um JSON validado. Instalação e uso em [Predição com LLM](#predição-com-llm-ollama) |
 
 ## Arquitetura (MVC)
 
@@ -63,7 +63,7 @@ Uma requisição passa assim: a **view** (JavaScript da tela) chama a API → o 
 
 As tabelas estão em [`src/schema.sql`](src/schema.sql) e são criadas sozinhas quando o servidor sobe.
 
-**Dados:** o projeto usa o **dataset sintético** fornecido à turma (pasta [`dados/`](dados/LEIA-ME.md): 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). O scraping do Lyceum foi descartado. A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência.
+**Dados:** o sistema usa um **dataset sintético** (pasta `dados/`: 120 alunos de Engenharia de Software, 2023-1 a 2026-2, nenhum registro real). A estrutura das tabelas acadêmicas é a do próprio dataset (significado de cada coluna em `dados/dicionario_dados.csv`). Os dados entram só por `python src/importar.py`, e nenhuma rota da API escreve nota ou frequência.
 Para recriar o banco do zero: apague `src/funcionaai.db` e rode o importador de novo.
 
 | Tabela | Guarda |
@@ -125,7 +125,7 @@ Qualquer pedido fora disso volta `403` e fica registrado no log do servidor (`ac
 | `professor@simpa.test` | `Professor#2026` | professor | Professor (`docente_id` 1, vê 78 alunos) |
 | `aluno@simpa.test` | `Aluno#2026` | aluno | Estudante Sintético 001 (`AES0001`) |
 
-São só para teste: fora do ambiente da turma, troque as senhas. Outros usuários são cadastrados pelo terminal (pede a senha duas vezes) ou pela rota `POST /api/usuarios`; a tela de cadastro na aba **Config.** está em desenvolvimento:
+São só para teste: fora do ambiente de testes, troque as senhas. Outros usuários são cadastrados pelo terminal (pede a senha duas vezes) ou pela rota `POST /api/usuarios`; a tela de cadastro na aba **Config.** está em desenvolvimento:
 
 ```bash
 flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "Fulano" --vinculo 2
@@ -172,7 +172,7 @@ flask --app src/Espiada.py criar-usuario fulano@unievangelica.edu.br professor "
 {
   "matricula": "AES0001", "risco": "medio", "score": 1,
   "fatores": [{"descricao": "Frequência abaixo de 75%", "negativo": false}, "..."],
-  "ajustes": [], "origem": "llm", "modelo": "qwen3:8b", "nivel_regras": "baixo", "nivel_llm": "medio",
+  "ajustes": [], "origem": "llm", "modelo": "qwen3:4b", "nivel_regras": "baixo", "nivel_llm": "medio",
   "comentario": "Frequência e nota boas; atenção à distância de 55 km e ao histórico curto."
 }
 ```
@@ -207,7 +207,7 @@ Precisa do **Python 3.10+** instalado.
    As dependências são o **Flask** e três bibliotecas que o código importa direto: **Werkzeug** (hash de senha, erros HTTP), **Click** (comandos `criar-usuario` e `recalcular-predicoes`) e **ollama** (cliente da LLM; só é carregado na hora de chamar o Ollama, então o resto do sistema funciona mesmo sem ele). As duas já viriam junto com o Flask, mas ficam listadas porque o projeto usa elas diretamente. O `sqlite3` já vem com o Python e nenhuma biblioteca de gráficos é necessária.
 4. (Para a predição com LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo, uma vez só; sem isso a predição sai só com as regras. Passo a passo em [Predição com LLM](#predição-com-llm-ollama):
    ```bash
-   ollama pull qwen3:8b
+   ollama pull qwen3:4b
    ```
 5. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
    ```bash
@@ -225,7 +225,7 @@ Para parar o servidor: `Ctrl+C` no terminal.
 
 ### Visão geral
 
-Os dados acadêmicos vêm do dataset sintético fornecido, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
+Os dados acadêmicos vêm do dataset sintético, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou.
 
 ```mermaid
 flowchart LR
@@ -260,13 +260,13 @@ flowchart TD
 
 ### Predição de risco
 
-Roda quando alguém clica em **Gerar predição** (um aluno) e no **recálculo em lote** (`flask --app src/Espiada.py recalcular-predicoes` ou `POST /api/predicoes/recalcular`), que pula quem não mudou desde a última análise da LLM. Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde. A LLM é local, não conversa com ninguém e só recebe indicadores anonimizados; o funcionamento completo, a instalação e o uso estão em [Predição com LLM](#predição-com-llm-ollama).
+Roda quando alguém clica em **Gerar predição** (um aluno) e no **recálculo em lote** (`flask --app src/Espiada.py recalcular-predicoes` ou `POST /api/predicoes/recalcular`), que pula quem não mudou desde a última análise da LLM. Cada predição vira uma linha nova em `predicao_ia`, então o histórico do aluno nunca se perde. A LLM é local, não conversa com ninguém e não recebe nome, matrícula nem endereço; o funcionamento completo, a instalação e o uso estão em [Predição com LLM](#predição-com-llm-ollama).
 
 ```mermaid
 flowchart TD
     N["Dados novos, recálculo em lote<br/>ou botão Gerar predição"] --> I["Calcula indicadores<br/>frequência, nota, reprovações"]
     I --> R["Aplica as regras de risco<br/>(pontuação abaixo)"]
-    R --> L["LLM local avalia o contexto anonimizado<br/>notas e faltas por semestre, feedback"]
+    R --> L["LLM local avalia o contexto do aluno<br/>notas e faltas por semestre, feedback"]
     L -->|Ollama fora ou resposta inválida| R2["Vale o nível das regras<br/>origem = regras"]
     L --> D1["A LLM só se afasta 1 nível das regras;<br/>as regras duras têm a palavra final"]
     R2 --> S
@@ -330,7 +330,7 @@ Relações N:N não aparecem como uma linha direta: elas passam por uma tabela i
 - `reclamacoes` = feedbacks com avaliação 1 ou 2
 - `risco` (`calcular_risco()` em `src/models/predicao.py`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1); indicador sem dado não conta. ≥4 alto, ≥2 médio, senão baixo.
 - **regras duras** (valem acima da pontuação e da LLM): frequência < 75% força "alto"; menos de 8 registros acadêmicos (`HISTORICO_MINIMO`) limita a "médio"; com as duas juntas, o histórico curto vence e o nível fica "médio". Campo sem dado não aplica a regra.
-- **LLM** (`qwen3:8b` no Ollama): recebe o contexto anonimizado e a pré-análise das regras e devolve um nível e um comentário; pode se afastar no máximo 1 nível do das regras (`LLM_PASSO_MAXIMO`). Detalhes em [Predição com LLM](#predição-com-llm-ollama).
+- **LLM** (`qwen3:4b` no Ollama): recebe o contexto do aluno, sem nome nem matrícula, e a pré-análise das regras e devolve um nível e um comentário; pode se afastar no máximo 1 nível do das regras (`LLM_PASSO_MAXIMO`). Detalhes em [Predição com LLM](#predição-com-llm-ollama).
 
 ## Predição com LLM (Ollama)
 
@@ -338,7 +338,9 @@ O que a predição com LLM faz, como foi implementada, como instalar e como usar
 
 ### 1. Resumo
 
-- A LLM é o **`qwen3:8b`** (8 bilhões de parâmetros) rodando **local** no Ollama. Nada vai para a nuvem.
+- **Nos nossos testes locais usamos o `qwen3:4b`** (4 bilhões de parâmetros), rodando **local** no Ollama. Nada vai para a nuvem.
+- **A escolha do modelo muda pouco a predição**, desde que ele tenha **pelo menos 2 bilhões de parâmetros**. O motivo está no próprio desenho: a LLM só pode mover o nível das regras em 1 degrau, e as regras duras valem por cima dela. Para trocar de modelo basta a variável `OLLAMA_MODEL` (seção 5.4).
+- O `qwen3:4b` foi usado só em **testes locais**. Os dados que ele recebe **não passaram por tratamento de acordo com a LGPD**: o sistema tira nome, matrícula e endereço do contexto, mas isso não foi avaliado como anonimização nos termos da lei.
 - **Não é chat.** Ninguém digita nada para ela. O prompt é fixo, o conteúdo vem do banco e a resposta é um JSON com formato obrigatório (`nivel` e `comentario`).
 - Ela **não decide sozinha**: opina sobre o nível de risco, mas o sistema limita o quanto ela pode se afastar das regras, e as **regras duras** têm a palavra final.
 - **O sistema funciona sem ela.** Se o Ollama estiver fora do ar, a predição sai só com as regras e fica marcada como `origem = regras`.
@@ -348,7 +350,7 @@ O que a predição com LLM faz, como foi implementada, como instalar e como usar
 
 1. **Indicadores:** o resumo do aluno (frequência, nota, reprovações, distância, reclamações e número de registros) vem de `models/alunos.py`.
 2. **Pontuação por regras** (`calcular_risco`): freq < 75 (+2), nota < 60 (+2), reprovação (+1), reclamação (+1), distância > 30 km (+1). 4 ou mais é alto, 2 ou mais é médio, senão baixo. Indicador sem dado não conta.
-3. **A LLM opina** (`models/llm.py`): recebe o contexto anonimizado (seção 3) e devolve um nível e um comentário.
+3. **A LLM opina** (`models/llm.py`): recebe o contexto do aluno (seção 3) e devolve um nível e um comentário.
 4. **Limite de afastamento:** a LLM só pode se afastar **1 nível** do nível das regras (`LLM_PASSO_MAXIMO`). Se as regras dizem "baixo", ela pode chegar no máximo a "médio".
 5. **Regras duras** (valem acima da pontuação e da LLM):
 
@@ -361,7 +363,7 @@ O que a predição com LLM faz, como foi implementada, como instalar e como usar
 
 6. **Grava** uma linha em `predicao_ia` com o nível final, o comentário, a `origem` (`llm` ou `regras`), o `modelo` e os `detalhes` (fatores, ajustes, nível das regras e nível da LLM).
 
-Por que esse desenho: o PDF do projeto exige que o sistema **explique por que apontou risco**. Por isso a pontuação e os fatores continuam sendo o núcleo explicável, a LLM é uma análise complementar, e tudo o que ela mudou fica registrado em `detalhes`.
+Por que esse desenho: a pontuação e os fatores mostram **por que o sistema apontou risco**. A LLM é uma análise complementar, e tudo o que ela mudou fica registrado em `detalhes`.
 
 ### 3. O que a LLM recebe e devolve
 
@@ -388,7 +390,7 @@ Um contexto típico tem cerca de 220 tokens e o prompt fixo, cerca de 900 caract
 
 **Cuidados de segurança**
 
-- **Anonimização:** o contexto não tem dado que identifique o aluno. `teste_llm.py` confere isso.
+- **Sem identificação direta:** o contexto não leva nome, matrícula nem endereço; `teste_llm.py` confere isso. Isso não é um tratamento de dados de acordo com a LGPD (veja o Resumo).
 - **Texto do aluno é dado, não ordem:** o feedback entra dentro do JSON, truncado em 300 caracteres, e o prompt manda ignorar instruções escritas nele. Mesmo que a LLM obedecesse, ela só pode devolver um dos 3 níveis, não passa de 1 nível das regras, e as regras duras valem por cima.
 - **Saída escapada:** a tela escapa o comentário da LLM antes de mostrá-lo, então um HTML escrito no feedback não executa.
 - **Resposta inválida** (JSON quebrado, nível desconhecido, comentário que não é texto) vira erro `502` internamente, e a predição cai nas regras.
@@ -411,17 +413,17 @@ Um contexto típico tem cerca de 220 tokens e o prompt fixo, cerca de 900 caract
 #### 5.1 Ollama e o modelo (na máquina que vai rodar a LLM)
 
 1. Baixe e instale o Ollama: https://ollama.com/download (Windows, macOS e Linux). No Linux também serve `curl -fsSL https://ollama.com/install.sh | sh`.
-2. Baixe o modelo (cerca de 5 GB, uma vez só):
+2. Baixe o modelo (uma vez só):
    ```bash
-   ollama pull qwen3:8b
+   ollama pull qwen3:4b
    ```
 3. Confira:
    ```bash
    ollama list
-   ollama run qwen3:8b "Responda apenas: ok"
+   ollama run qwen3:4b "Responda apenas: ok"
    ```
 
-**Hardware:** o alvo é uma máquina com **8 GB de VRAM e 16 GB de RAM**. O modelo cabe, mas no limite. Feche outros programas que usem a placa de vídeo. Se a VRAM não bastar, o Ollama joga parte do modelo na RAM e fica mais lento. Para ver a divisão, rode `ollama ps` com o modelo carregado e olhe a coluna `PROCESSOR`.
+**Hardware:** com placa de vídeo a resposta é bem mais rápida; sem ela o modelo roda na CPU, mais devagar. Se a memória da placa não bastar, o Ollama joga parte do modelo na RAM e fica mais lento. Para ver a divisão, rode `ollama ps` com o modelo carregado e olhe a coluna `PROCESSOR`.
 
 #### 5.2 Cliente Python
 
@@ -440,10 +442,10 @@ Nada a fazer: ao subir o servidor, `criar_banco()` acrescenta as colunas novas (
 | Variável | Padrão | Para quê |
 |---|---|---|
 | `OLLAMA_URL` | `http://localhost:11434` | endereço do Ollama |
-| `OLLAMA_MODEL` | `qwen3:8b` | modelo usado |
+| `OLLAMA_MODEL` | `qwen3:4b` | modelo usado; o `qwen3:4b` é o dos nossos testes locais, e qualquer modelo com pelo menos 2 bilhões de parâmetros serve |
 | `OLLAMA_TIMEOUT` | `120` | segundos de espera por resposta (a 1ª chamada carrega o modelo e demora) |
 
-Windows (PowerShell): `$env:OLLAMA_MODEL = "qwen3:8b"`. Linux e macOS: `export OLLAMA_MODEL=qwen3:8b`.
+Windows (PowerShell): `$env:OLLAMA_MODEL = "qwen3:4b"`. Linux e macOS: `export OLLAMA_MODEL=qwen3:4b`.
 
 #### 5.5 Ollama em outra máquina (opcional)
 
@@ -452,7 +454,7 @@ Windows (PowerShell): `$env:OLLAMA_MODEL = "qwen3:8b"`. Linux e macOS: `export O
 1. Na máquina com a placa, inicie o Ollama escutando na rede: variável `OLLAMA_HOST=0.0.0.0` antes de subir o servidor dele.
 2. Na máquina do Espiada, aponte para ela: `OLLAMA_URL=http://IP_DA_MAQUINA:11434`.
 
-O Ollama **não tem autenticação**: use só em rede confiável. Os dados enviados já são anonimizados, mas viajam sem criptografia.
+O Ollama **não tem autenticação**: use só em rede confiável. Os dados enviados viajam sem criptografia.
 
 ### 6. Uso
 
@@ -483,13 +485,7 @@ curl -b cookie.txt -X POST http://127.0.0.1:5000/api/alunos/AES0001/predicao    
 
 O andamento traz `estado` (`rodando`, `concluido` ou `erro`), `total`, `feitos`, `puladas` e `falhas`. O estado fica em memória: reiniciar o servidor o zera, e o modo `debug` do Flask pode interromper o lote ao recarregar o código.
 
-#### 6.3 Receita para a demonstração
-
-1. Na máquina de 8 GB: instale o Ollama, baixe o `qwen3:8b` e rode `recalcular-predicoes` uma vez.
-2. Leve o `src/funcionaai.db` **já com as predições gravadas**. A demonstração lê o que está guardado e não depende da LLM.
-3. Se for gerar predição ao vivo, faça um clique de aquecimento antes: a primeira chamada carrega o modelo e é a mais lenta.
-
-Cada análise deve levar alguns segundos numa placa de 8 GB. Esse tempo é uma estimativa a **medir na máquina real**: o comando acima mostra o andamento. Para 1000 alunos, a meta de 5 minutos só cabe com as regras para todos e a LLM apenas em quem mudou.
+A primeira chamada carrega o modelo na memória e é a mais lenta. O tempo de cada análise depende da máquina e ainda não foi medido; o comando acima mostra o andamento.
 
 ### 7. Problemas comuns
 
@@ -497,9 +493,9 @@ Cada análise deve levar alguns segundos numa placa de 8 GB. Esse tempo é uma e
 |---|---|---|
 | `pacote ollama não instalado (pip install ollama)` | falta o cliente Python | `pip install "ollama>=0.5.1"` |
 | `Ollama indisponível em http://localhost:11434: ...` | Ollama não está rodando, ou `OLLAMA_URL` errada | abra o aplicativo do Ollama ou rode `ollama serve`; confira a URL |
-| `modelo qwen3:8b não baixado no Ollama (rode: ollama pull qwen3:8b)` | falta baixar o modelo | `ollama pull qwen3:8b` |
+| `modelo qwen3:4b não baixado no Ollama (rode: ollama pull qwen3:4b)` | falta baixar o modelo | `ollama pull qwen3:4b` |
 | `a LLM respondeu fora do formato esperado` | resposta cortada ou inválida (aparece como aviso, a predição cai nas regras) | tente de novo; se repetir, aumente `num_predict` em `llm.OPCOES` |
-| tudo muito lento | modelo não coube na VRAM | `ollama ps`: veja a divisão GPU/CPU; feche outros programas |
+| tudo muito lento | modelo não coube na memória da placa de vídeo | `ollama ps`: veja a divisão GPU/CPU; feche outros programas |
 | `timeout` | a 1ª chamada carrega o modelo | aumente `OLLAMA_TIMEOUT` |
 | `409` ao recalcular | já existe um lote rodando | espere terminar (`GET /api/predicoes/recalculo`) |
 | `503` ao recalcular | Ollama fora ou modelo não baixado | veja as linhas acima; o lote nem começa |
@@ -522,7 +518,7 @@ O histórico mínimo vale 8 por escolha provisória. No dataset, qualquer valor 
 
 - **Não validada ainda contra o gabarito.** Compare as predições com `desfechos_alunos` (evasão observada). Essa tabela serve para **avaliar**, nunca como entrada, assim como `indicadores_risco` (vazamento). Nas regras atuais, 9 das 20 evasões do dataset estão em alunos classificados como "baixo": é onde a LLM pode ajudar.
 - **Determinismo:** `temperature` 0 e `seed` fixa dão o mesmo resultado para a mesma entrada, mas isso não é garantido entre versões do Ollama ou do modelo.
-- **Privacidade:** com o Ollama local nenhum dado sai da máquina. Com `OLLAMA_URL` apontando para outra máquina, o contexto anonimizado trafega pela rede.
+- **Privacidade:** com o Ollama local nenhum dado sai da máquina. Com `OLLAMA_URL` apontando para outra máquina, o contexto do aluno trafega pela rede. Os dados não passaram por tratamento de acordo com a LGPD.
 - **O dataset não tem "entrega de atividades"**, então essa informação não chega à LLM.
 - **Ainda não existe:** notificação de alto risco, pesos configuráveis, limite de 10 chamadas a cada 3 h, alteração manual de predição, gatilho automático de recálculo ao chegar dado novo e botão de recálculo na tela. Estão no [`roadmap.md`](roadmap.md).
 
@@ -531,7 +527,7 @@ O histórico mínimo vale 8 por escolha provisória. No dataset, qualquer valor 
 | Arquivo | O que faz |
 |---|---|
 | `src/models/llm.py` | cliente do Ollama: prompt, formato da resposta, validação, erros `503` e `502` |
-| `src/models/predicao.py` | regras, regras duras, contexto anonimizado, hash, decisão final, recálculo em lote, histórico |
+| `src/models/predicao.py` | regras, regras duras, contexto enviado à LLM, hash, decisão final, recálculo em lote, histórico |
 | `src/models/alunos.py` | `registros` no resumo do aluno e `comentarios()` do feedback |
 | `src/models/banco.py` | migração das colunas novas em bancos antigos |
 | `src/schema.sql` | colunas `origem`, `modelo`, `entrada_hash` e `detalhes` em `predicao_ia` |
