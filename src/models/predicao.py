@@ -2,7 +2,7 @@
 
 Ordem de uma predição: pontuação por regras -> a LLM (Ollama) opina, sem se afastar muito do nível das regras
 -> as regras duras têm a palavra final. Sem LLM disponível vale o nível das regras e a predição fica marcada
-com origem 'regras'. O funcionamento completo está no readme.md (seção Predição com LLM).
+com origem 'regras'. O funcionamento completo está no readme.md (seção "Como o risco é calculado").
 """
 import hashlib
 import json

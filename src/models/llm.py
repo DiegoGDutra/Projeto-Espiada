@@ -3,7 +3,7 @@
 Não é chat: o prompt é fixo, o conteúdo vem do próprio sistema (indicadores anonimizados) e a resposta é um
 JSON com formato obrigatório. Este módulo não grava nada no banco; quem decide o que fazer com a opinião é o
 predicao.py. Usado só em testes locais: os dados enviados não passaram por tratamento de acordo com a LGPD.
-Configuração por variáveis de ambiente (detalhes no readme.md, seção Predição com LLM):
+Configuração por variáveis de ambiente (detalhes no readme.md, seção "A LLM"):
   OLLAMA_URL (padrão http://localhost:11434), OLLAMA_MODEL (padrão qwen3:4b), OLLAMA_TIMEOUT (segundos).
 """
 import json
