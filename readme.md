@@ -7,7 +7,7 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 ## Autores
 
 - Diego Garcez: full stack e documentação
-- André Ribeiro: banco de dados
+- André Ribeiro: banco de dados e integração de llm
 
 ## O que o sistema faz
 
@@ -281,6 +281,7 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 ## Próximos passos
 
 - Comparar as predições com `desfechos_alunos` para saber se a LLM melhora o acerto e ajustar o prompt.
+- Treinar e integrar um modelo preditivo supervisionado, que gere a previsão de evasão a partir da tendência dos dados de cada aluno ao longo dos semestres, usando `desfechos_alunos` (quem de fato evadiu) como rótulo do treino.
 - Tratar os dados enviados à LLM de acordo com a LGPD.
 - Deixar os pesos das regras configuráveis, com rota e tela.
 - Ligar o formulário de feedback à API e mostrar os feedbacks para o professor.
