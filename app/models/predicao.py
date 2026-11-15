@@ -187,18 +187,18 @@ def salvar(matricula, resultado, entrada_hash=None):
         con.execute("""
             INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score, comentario_predicao,
                                      origem, modelo, entrada_hash, detalhes)
-            SELECT matricula_curso_id, ?, ?, ?, ?, ?, ?, ? FROM matriculas_curso JOIN alunos USING (aluno_id)
-             WHERE codigo_academico = ?""",
+            SELECT matricula_curso_id, %s, %s, %s, %s, %s, %s, %s FROM matriculas_curso JOIN alunos USING (aluno_id)
+             WHERE codigo_academico = %s""",
                     (resultado["risco"], resultado["score"], resultado.get("comentario"),
                      resultado.get("origem", "regras"), resultado.get("modelo"), entrada_hash, detalhes, matricula))
 
 
-def _linhas(matricula, limite=-1):
+def _linhas(matricula, limite=None):  # None = sem limite (LIMIT NULL)
     linhas = consultar("""
         SELECT p.predicao_id AS id, p.criado_em, p.nivel_risco AS risco, p.score, p.comentario_predicao,
                p.alterada_por, p.justificativa, p.origem, p.modelo, p.entrada_hash, p.detalhes
           FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
-         WHERE a.codigo_academico = ? ORDER BY p.predicao_id DESC LIMIT ?""", matricula, limite)
+         WHERE a.codigo_academico = %s ORDER BY p.predicao_id DESC LIMIT %s""", matricula, limite)
     for linha in linhas:
         linha["detalhes"] = json.loads(linha["detalhes"]) if linha["detalhes"] else None
     return linhas

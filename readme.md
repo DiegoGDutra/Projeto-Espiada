@@ -11,7 +11,7 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 
 ## O que o sistema faz
 
-- **Importação dos dados acadêmicos:** notas, frequência, endereço e perfil socioeconômico entram no banco só pelo importador (`src/importar.py`), a partir de um dataset sintético com 120 alunos de Engenharia de Software (2023-1 a 2026-2). Nenhum registro é de uma pessoa real, e nenhuma tela permite editar nota ou frequência.
+- **Importação dos dados acadêmicos:** notas, frequência, endereço e perfil socioeconômico entram no banco só pelo importador (`scripts/importar.py`), a partir de um dataset sintético com 5000 alunos e 450 docentes de Engenharia de Software (2023-1 a 2026-2). Os 120 alunos originais foram ampliados por `scripts/ampliar_dados.py`, na proporção de 18 docentes a cada 200 alunos. Nenhum registro é de uma pessoa real, e nenhuma tela permite editar nota ou frequência.
 - **Painel geral:** cards com o total de alunos e quantos estão em risco alto, médio e baixo, a lista dos alunos em risco crítico e quatro tipos de gráfico: barras (% de alto risco por turma), barras empilhadas (alto, médio e baixo por turma), rosca (distribuição geral) e radar (alunos com risco por turma). O filtro por turma vale para o painel inteiro. Os gráficos são desenhados à mão em CSS e SVG, sem biblioteca.
 - **Monitoramento:** tabela com todos os alunos visíveis, com turma, frequência, nota, reprovações e risco. Tem busca por nome e filtros por turma e por nível de risco. Clicar no aluno abre a ficha dele.
 - **Ficha do aluno:** notas e frequência de cada disciplina, separadas por semestre, e o histórico de predições de risco.
@@ -25,7 +25,7 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 
 O cálculo tem três camadas: uma pontuação por regras, uma opinião da LLM e as regras duras, que têm a palavra final. A pontuação e os fatores mostram **por que** o sistema apontou risco; a LLM é uma análise complementar.
 
-**Pontuação por regras.** Cada sinal de alerta soma pontos: frequência média abaixo de 75% (+2), nota média abaixo de 60 (+2), reprovação no histórico (+1), reclamação no feedback, ou seja, avaliação 1 ou 2 (+1), e morar a mais de 30 km do campus (+1). Com 4 pontos ou mais o risco é alto, com 2 ou 3 é médio, e abaixo disso é baixo. Um indicador sem dado, como o de um aluno ainda sem notas, não soma ponto. Os pesos estão na lista `REGRAS` de `src/models/predicao.py`.
+**Pontuação por regras.** Cada sinal de alerta soma pontos: frequência média abaixo de 75% (+2), nota média abaixo de 60 (+2), reprovação no histórico (+1), reclamação no feedback, ou seja, avaliação 1 ou 2 (+1), e morar a mais de 30 km do campus (+1). Com 4 pontos ou mais o risco é alto, com 2 ou 3 é médio, e abaixo disso é baixo. Um indicador sem dado, como o de um aluno ainda sem notas, não soma ponto. Os pesos estão na lista `REGRAS` de `app/models/predicao.py`.
 
 **Opinião da LLM.** A LLM recebe os indicadores do aluno, o resumo de cada semestre (nota média, frequência média e reprovações), os três últimos comentários dele e a pré-análise das regras. Com isso ela enxerga o que as médias escondem: a tendência entre os semestres e o tom dos comentários. Ela devolve um nível e um comentário curto, num JSON com formato obrigatório. Não é um chat: o prompt é fixo e ninguém digita nada para ela. O comentário do aluno entra como dado, e o prompt manda ignorar qualquer ordem escrita nele.
 
@@ -49,11 +49,11 @@ O `qwen3:4b` foi usado **só em testes locais**. Os dados enviados a ele **não 
 
 A temperatura é 0 e a semente é fixa, então a mesma entrada dá a mesma resposta. O modelo fica carregado na memória por 30 minutos depois de cada uso; a primeira chamada é a mais lenta, porque carrega o modelo. As outras variáveis opcionais são `OLLAMA_URL` (padrão `http://localhost:11434`) e `OLLAMA_TIMEOUT` (padrão 120 segundos).
 
-**Recálculo em lote.** Pelo terminal, `flask --app src/Espiada.py recalcular-predicoes` analisa todos os alunos (`--forcar` reanalisa também quem não mudou). Pela API, a secretaria usa `POST /api/predicoes/recalcular` e acompanha o andamento em `GET /api/predicoes/recalculo`. Para saber quem mudou, o sistema guarda a cada análise um resumo (hash) do que a LLM recebeu, junto com o modelo e a versão do prompt; se o resumo for igual ao da última análise, o aluno é pulado. Antes de começar, o sistema confere se o Ollama responde, e se a LLM falhar três vezes seguidas, o lote para.
+**Recálculo em lote.** Pelo terminal, `flask --app app/Espiada.py recalcular-predicoes` analisa todos os alunos (`--forcar` reanalisa também quem não mudou). Pela API, a secretaria usa `POST /api/predicoes/recalcular` e acompanha o andamento em `GET /api/predicoes/recalculo`. Para saber quem mudou, o sistema guarda a cada análise um resumo (hash) do que a LLM recebeu, junto com o modelo e a versão do prompt; se o resumo for igual ao da última análise, o aluno é pulado. Antes de começar, o sistema confere se o Ollama responde, e se a LLM falhar três vezes seguidas, o lote para.
 
 ## Tecnologias
 
-Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de terminal), SQLite, Ollama com o cliente `ollama` para Python e HTML, CSS e JavaScript puro nas telas. A fonte Inter é servida pelo próprio sistema. A arquitetura é MVC: os models guardam os dados e as regras, as views são as telas e os controllers recebem os pedidos, conferem login e perfil e devolvem JSON.
+Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de terminal), PostgreSQL (com o driver `psycopg`) rodando no Docker, Ollama com o cliente `ollama` para Python e HTML, CSS e JavaScript puro nas telas. A fonte Inter é servida pelo próprio sistema. A arquitetura é MVC: os models guardam os dados e as regras, as views são as telas e os controllers recebem os pedidos, conferem login e perfil e devolvem JSON.
 
 ## Como executar
 
@@ -72,13 +72,21 @@ Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de t
 
    No Windows, se o comando `pip` não for reconhecido, use `py -m pip install -r requirements.txt`. Se quiser, crie antes um ambiente virtual com `python -m venv .venv`.
 
-4. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
+4. Suba o banco de dados (PostgreSQL). O jeito mais simples é com o [Docker Desktop](https://www.docker.com/products/docker-desktop/) aberto:
 
    ```
-   python src/importar.py
+   docker compose up -d
    ```
 
-5. (Opcional, para a predição com LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo uma vez:
+   Só é preciso rodar uma vez: o container volta sozinho sempre que o Docker inicia (ative no Docker Desktop a opção de iniciar com o Windows e o banco sobe junto com o computador). Quem preferir instalar o PostgreSQL direto no Windows cria um banco e um usuário e informa o endereço na variável de ambiente `DATABASE_URL` (modelo em `.env.example`).
+
+5. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
+
+   ```
+   python scripts/importar.py
+   ```
+
+6. (Opcional, para a predição com LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo uma vez:
 
    ```
    ollama pull qwen3:4b
@@ -86,31 +94,33 @@ Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de t
 
    O Ollama precisa estar aberto quando você gerar uma predição. Sem ele, a predição sai só com as regras.
 
-6. Inicie o servidor:
+7. Inicie o servidor:
 
    ```
-   python src/Espiada.py
+   python app/Espiada.py
    ```
 
-   No Windows, também pode ser `py src/Espiada.py`.
+   No Windows, também pode ser `py app/Espiada.py`.
 
-7. Abra no navegador:
+8. Abra no navegador:
 
    ```
    http://127.0.0.1:5000
    ```
 
-O banco de dados `src/funcionaai.db` (SQLite) é criado automaticamente quando o servidor sobe, e as colunas novas são acrescentadas sozinhas em bancos antigos. Para recriar o banco do zero, apague esse arquivo e rode o importador de novo. Para conferir o sistema, rode `python src/teste_banco.py`, `python src/teste_api.py` e `python src/teste_llm.py`; nenhum dos três precisa do Ollama.
+O banco é um PostgreSQL, no endereço da variável `DATABASE_URL`; sem ela, o sistema usa `postgresql://espiada:espiada@127.0.0.1:5432/espiada`, o do `docker-compose.yml`. As tabelas são criadas automaticamente quando o servidor sobe. Para recriar o banco do zero, rode `docker compose down -v`, `docker compose up -d` e o importador de novo. Para conferir o sistema, rode `python testes/teste_banco.py`, `python testes/teste_api.py` e `python testes/teste_llm.py`: eles precisam do PostgreSQL no ar, mas não do Ollama, e usam esquemas próprios (`teste_banco`, `teste_api`, `teste_llm`) recriados a cada execução, sem mexer nos dados de verdade.
 
 ## Acesso ao sistema
 
-O importador cria um login de cada perfil:
+O importador cria um login padrão de cada perfil:
 
-- Secretaria: `secretaria@simpa.test`, senha `Secretaria#2026` (vê os 120 alunos)
-- Professor: `professor@simpa.test`, senha `Professor#2026` (vê os 78 alunos que passaram pelas turmas dele)
+- Secretaria: `secretaria@simpa.test`, senha `Secretaria#2026` (vê os 5000 alunos)
+- Professor: `professor@simpa.test`, senha `Professor#2026` (vê os 483 alunos que passaram pelas turmas dele)
 - Aluno: `aluno@simpa.test`, senha `Aluno#2026` (Estudante Sintético 001, matrícula `AES0001`)
 
-Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `flask --app src/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, ou pela rota `POST /api/usuarios`; a tela de cadastro na aba Config. ainda está em desenvolvimento.
+Os demais alunos e docentes também ganham login, com a senha padrão do perfil: `aes0002@simpa.test` a `aes5000@simpa.test` (senha `Aluno#2026`) e `docente2@simpa.test` a `docente450@simpa.test` (senha `Professor#2026`).
+
+Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `flask --app app/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, ou pela rota `POST /api/usuarios`; a tela de cadastro na aba Config. ainda está em desenvolvimento.
 
 A senha precisa ter 8 ou mais caracteres, com maiúscula, minúscula, número e caractere especial, e fica guardada no banco apenas como hash. Depois de 5 senhas erradas seguidas, o login fica bloqueado por 15 minutos. A sessão fica num cookie assinado e protegido (`HttpOnly`, `SameSite=Strict`). Em uso real, defina a variável de ambiente `SECRET_KEY`; sem ela, o servidor gera uma chave nova a cada vez que sobe e todo mundo precisa entrar de novo.
 
@@ -124,24 +134,29 @@ A política de privacidade descreve os dados coletados, a finalidade, a base leg
 
 A mesma página `/sobre.html` tem as abas Sobre e Equipe, com a ficha técnica do projeto e os autores. Os Termos de Uso deixam claro que o nível de risco é um **apoio à decisão**, não uma conclusão sobre o aluno, e que qualquer ação deve ser avaliada por uma pessoa.
 
-O código e o conteúdo do Espiada pertencem aos autores. Os componentes de terceiros seguem as próprias licenças: a fonte Inter, sob a SIL Open Font License 1.1 (`src/static/fontes/OFL.txt`), e o Flask, sob a licença BSD-3-Clause.
+O código e o conteúdo do Espiada pertencem aos autores. Os componentes de terceiros seguem as próprias licenças: a fonte Inter, sob a SIL Open Font License 1.1 (`app/static/fontes/OFL.txt`), e o Flask, sob a licença BSD-3-Clause.
 
 ## Estrutura do projeto
 
 ```
 Projeto-Espiada/
 ├── requirements.txt                 # dependências
+├── docker-compose.yml               # PostgreSQL de desenvolvimento (docker compose up -d)
+├── .env.example                     # modelo do .env (DATABASE_URL)
 ├── roadmap.md                       # andamento de cada funcionalidade
 ├── dados/                           # dataset sintético em CSV e o dicionário das colunas
-└── src/
+├── scripts/                         # ferramentas que rodam à parte do sistema
+│   ├── importar.py                  # carrega o dataset no banco e cria os logins
+│   └── ampliar_dados.py             # amplia o dataset de dados/ para 5000 alunos
+├── testes/
+│   ├── teste_banco.py               # testes das regras do banco
+│   ├── teste_api.py                 # testes das rotas e permissões
+│   └── teste_llm.py                 # testes da LLM com um Ollama simulado
+└── app/                             # o sistema, em MVC
     ├── Espiada.py                   # ponto de entrada: cria o app, registra os controllers, trata erros
-    ├── importar.py                  # carrega o dataset no banco e cria os logins padrão
     ├── schema.sql                   # tabelas e regras do banco
-    ├── teste_banco.py               # testes das regras do banco
-    ├── teste_api.py                 # testes das rotas e permissões
-    ├── teste_llm.py                 # testes da LLM com um Ollama simulado
     ├── models/                      # M: dados e regras de negócio
-    │   ├── banco.py                 # conexão SQLite, transações e erros
+    │   ├── banco.py                 # conexão PostgreSQL, transações e erros
     │   ├── usuario.py               # cadastro e autenticação
     │   ├── academico.py             # cursos, disciplinas, docentes e turmas
     │   ├── alunos.py                # resumo com indicadores, ficha e quem pode ver quem
@@ -168,17 +183,17 @@ Uma requisição sempre faz o mesmo caminho: a tela chama a API, o controller co
 
 ### Visão geral
 
-Os dados acadêmicos vêm do dataset sintético, importado por `src/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no SQLite, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou. O aviso à coordenação por WhatsApp ou Telegram ainda é planejado.
+Os dados acadêmicos vêm do dataset sintético, importado por `scripts/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no PostgreSQL, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou. O aviso à coordenação por WhatsApp ou Telegram ainda é planejado.
 
 ```mermaid
 flowchart LR
     AVA["Dataset sintético (dados/)<br/>notas, frequência, perfil"] -->|importar.py| DB
-    subgraph Servidor["Servidor Flask (src/Espiada.py)"]
+    subgraph Servidor["Servidor Flask (app/Espiada.py)"]
         API["API /api/..."]
         CALC["Cálculo de risco<br/>regras + pesos"]
         API --> CALC
     end
-    API <--> DB[("SQLite<br/>funcionaai.db")]
+    API <--> DB[("PostgreSQL<br/>docker-compose.yml")]
     CALC <-->|contexto do aluno| LLM["LLM Ollama<br/>(local, qwen3:4b nos testes)"]
     CALC -->|grava predição| DB
     CALC -->|alto risco| NOTIF["WhatsApp / Telegram<br/>coordenação (planejado)"]
@@ -223,7 +238,7 @@ flowchart TD
 
 ## Banco de dados e API
 
-O banco tem 18 tabelas, criadas a partir de `src/schema.sql`. As regras de validação ficam no próprio banco: nota e frequência, por exemplo, só aceitam valores de 0 a 100. As tabelas formam quatro grupos:
+O banco tem 18 tabelas, criadas a partir de `app/schema.sql`. As regras de validação ficam no próprio banco: nota e frequência, por exemplo, só aceitam valores de 0 a 100. As tabelas formam quatro grupos:
 
 - **Estrutura acadêmica:** `cursos`, `periodos_curriculares`, `disciplinas`, `turmas` e `docentes`. A turma liga uma disciplina e um docente num semestre.
 - **O aluno:** `alunos` (o `codigo_academico`, como `AES0001`, é a matrícula), `matriculas_curso`, `registros_academicos` (notas e frequência por turma e tentativa), `enderecos_alunos`, `cidades`, `perfis_socioeconomicos`, `tipos_bolsa` e `bolsas_alunos`.
@@ -264,13 +279,13 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 ## Limitações conhecidas
 
-**A LLM ainda não foi comparada com o gabarito.** Ninguém mediu se as predições com LLM acertam mais do que só as regras. A tabela `desfechos_alunos` permite fazer essa conta. Nas regras atuais, 9 das 20 evasões do dataset estão em alunos classificados como risco baixo, e é aí que a LLM pode ajudar.
+**A LLM ainda não foi comparada com o gabarito.** Ninguém mediu se as predições com LLM acertam mais do que só as regras. A tabela `desfechos_alunos` permite fazer essa conta. Nas regras atuais, 218 das 640 evasões do dataset (34%) estão em alunos classificados como risco baixo (no dataset original de 120 alunos eram 9 das 20), e é aí que a LLM pode ajudar.
 
 **Dados da LLM sem tratamento de LGPD.** A LLM foi usada só em testes locais com o `qwen3:4b`. O contexto enviado não leva nome, matrícula nem endereço, mas não passou por um tratamento de dados de acordo com a lei.
 
-**Histórico mínimo provisório.** O corte de 8 registros para permitir risco alto é uma escolha provisória. No dataset, qualquer valor de 6 a 10 pega os mesmos 15 alunos do 1º semestre.
+**Histórico mínimo provisório.** O corte de 8 registros para permitir risco alto é uma escolha provisória. No dataset, qualquer valor de 6 a 10 pega os mesmos 625 alunos do 1º período.
 
-**Dados que o dataset não tem.** Entrega de atividades não existe no dataset, então não entra no cálculo. Como cada período tem uma única turma de 15 alunos, turma, período e ano de ingresso dão o mesmo agrupamento.
+**Dados que o dataset não tem.** Entrega de atividades não existe no dataset, então não entra no cálculo. Cada período tem 625 alunos, divididos em seções de turma (A, B, C...) de 45 vagas, mas o painel agrupa por período; como todos do mesmo período entraram juntos, turma, período e ano de ingresso dão o mesmo agrupamento.
 
 **Feedback só de demonstração.** O formulário do aluno mostra a confirmação na tela, mas não chama a API nem grava no banco.
 

@@ -1,18 +1,20 @@
 """Confere a integração com a LLM sem precisar de Ollama: o cliente dele é simulado.
 Cobre o formato da resposta, as falhas, a anonimização, o limite de afastamento da LLM, as regras duras,
-o hash que evita reanalisar quem não mudou e o recálculo em lote.   Rodar:  python src/teste_llm.py"""
+o hash que evita reanalisar quem não mudou e o recálculo em lote.   Rodar:  python testes/teste_llm.py"""
 import json
 import sys
-import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+
+RAIZ = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(RAIZ / "app"), str(RAIZ / "scripts")]  # o sistema fica em app/ e o importador em scripts/
 
 from importar import importar
 from models import alunos, banco, feedback, llm, predicao
 from models.banco import ErroModelo
 
-banco.BANCO = Path(tempfile.mkdtemp()) / "teste_llm.db"  # não mexe no funcionaai.db
-importar(banco.BANCO)
+banco.usar_esquema_de_teste("teste_llm")  # esquema próprio, recriado vazio: não mexe nos dados de verdade
+importar()
 SECRETARIA = {"perfil": "secretaria"}
 
 
@@ -169,10 +171,10 @@ llm.verificar = lambda: None
 cliente = usa(ClienteFalso('{"nivel": "baixo", "comentario": "Sem sinais de risco."}'))
 andamento = []
 resumo = predicao.recalcular_todos(ao_progredir=andamento.append)
-assert resumo == {"total": 120, "feitos": 119, "puladas": 1, "falhas": 0, "interrompido": False}, resumo
-assert len(andamento) == 120 and andamento[-1] == resumo and len(cliente.chamadas) == 119
-assert predicao.recalcular_todos()["puladas"] == 120  # segunda rodada: ninguém mudou
-assert predicao.recalcular_todos(forcar=True)["feitos"] == 120
+assert resumo == {"total": 5000, "feitos": 4999, "puladas": 1, "falhas": 0, "interrompido": False}, resumo
+assert len(andamento) == 5000 and andamento[-1] == resumo and len(cliente.chamadas) == 4999
+assert predicao.recalcular_todos()["puladas"] == 5000  # segunda rodada: ninguém mudou
+assert predicao.recalcular_todos(forcar=True)["feitos"] == 5000
 usa(ClienteFalso("lixo"))
 resumo = predicao.recalcular_todos(forcar=True)  # a LLM só devolve lixo: 3 falhas seguidas interrompem
 assert resumo["interrompido"] and resumo["falhas"] == 3 and resumo["feitos"] == 0, resumo

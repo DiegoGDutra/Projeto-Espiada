@@ -1,0 +1,24 @@
+# PostgreSQL do Espiada para desenvolvimento.  Subir uma vez:  docker compose up -d
+# Volta sozinho sempre que o Docker inicia. Zerar o banco (apaga os dados):  docker compose down -v
+name: espiada  # nome do projeto no Docker: o volume vira espiada_dados (não mistura com outros projetos)
+
+services:
+  banco:
+    image: postgres:17
+    container_name: banco-espiada
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: espiada
+      POSTGRES_USER: espiada
+      POSTGRES_PASSWORD: espiada  # só para desenvolvimento; em uso real, troque e ajuste o DATABASE_URL
+    ports:
+      - "127.0.0.1:5432:5432"  # só este computador acessa; sem o 127.0.0.1, qualquer um na mesma rede tentaria
+    volumes:
+      - dados:/var/lib/postgresql/data  # os dados sobrevivem quando o container é recriado
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "espiada", "-d", "espiada"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  dados:

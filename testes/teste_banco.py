@@ -1,18 +1,23 @@
-"""Confere as regras do schema.sql num banco em memória.  Rodar:  python src/teste_banco.py"""
-import sqlite3
-import tempfile
+"""Confere as regras do schema.sql num esquema de teste do PostgreSQL.  Rodar:  python testes/teste_banco.py"""
+import sys
 from pathlib import Path
 
-from models.banco import SCHEMA, conectar, criar_banco
+RAIZ = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(RAIZ / "app"), str(RAIZ / "scripts")]  # o sistema fica em app/ e o importador em scripts/
 
-con = conectar(":memory:")  # banco temporário, não mexe no funcionaai.db
-con.executescript(SCHEMA.read_text(encoding="utf-8"))
+import psycopg
+
+from models import banco
+
+banco.usar_esquema_de_teste("teste_banco")  # esquema próprio, recriado vazio: não mexe nos dados de verdade
+con = banco.conectar()
+con.autocommit = True  # cada comando vale sozinho: um recusado não derruba os seguintes
 
 
 def recusa(sql, *args):
     try:
         con.execute(sql, args)
-    except sqlite3.IntegrityError:
+    except psycopg.IntegrityError:
         return True
     return False
 
@@ -29,7 +34,7 @@ con.execute("INSERT INTO usuario VALUES ('ada@simpa.test', 'professor', 'Ada', '
 con.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1, 'baixo')")
 con.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES (1, 'medio')")
 
-assert con.execute("SELECT count(*) FROM predicao_ia").fetchone()[0] == 2, "histórico guarda várias predições"
+assert con.execute("SELECT count(*) FROM predicao_ia").fetchone()["count"] == 2, "histórico guarda várias predições"
 assert recusa("INSERT INTO alunos VALUES (2, 'AES0001', 'X', '2000-01-01', 'X', 'X')"), "matrícula repetida"
 assert recusa("INSERT INTO matriculas_curso VALUES (2, 99, 1, 'x', 2026, 2, 1, 'x', 'x', 'x', 'x')"), "aluno inexistente"
 assert recusa("UPDATE registros_academicos SET nota_n1 = 101"), "nota acima de 100"
@@ -40,25 +45,11 @@ assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco) VALUES 
 assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, alterada_por) VALUES (1, 'alto', 'ada@simpa.test')"), \
     "alteração manual sem justificativa"
 assert recusa("INSERT INTO feedback (aluno_id, alvo) VALUES (1, 'professor')"), "feedback só de curso/instituição"
-assert con.execute("SELECT DISTINCT origem FROM predicao_ia").fetchall()[0][0] == "regras", "origem padrão é regras"
+assert con.execute("SELECT DISTINCT origem FROM predicao_ia").fetchall()[0]["origem"] == "regras", "origem padrão é regras"
 assert recusa("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem) VALUES (1, 'alto', 'chute')"), \
     "origem só regras ou llm"
 con.execute("""INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, origem, modelo, entrada_hash, detalhes)
                VALUES (1, 'alto', 'llm', 'qwen3:4b', 'abc', '{}')""")
 
-# banco criado antes das colunas novas: criar_banco acrescenta e as linhas antigas ficam com origem 'regras'
-antigo = Path(tempfile.mkdtemp()) / "antigo.db"
-velho = sqlite3.connect(antigo)
-velho.execute("""CREATE TABLE predicao_ia (predicao_id INTEGER PRIMARY KEY, matricula_curso_id INTEGER NOT NULL,
-    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, nivel_risco TEXT NOT NULL, score INTEGER,
-    comentario_predicao TEXT, alterada_por TEXT, justificativa TEXT)""")
-velho.execute("INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score) VALUES (1, 'medio', 3)")
-velho.commit()
-velho.close()
-criar_banco(antigo)
-criar_banco(antigo)  # pode rodar toda vez que o app sobe, sem repetir o ALTER
-migrado = conectar(antigo)
-assert [tuple(l) for l in migrado.execute("SELECT nivel_risco, origem, modelo, entrada_hash, detalhes FROM predicao_ia")] \
-    == [("medio", "regras", None, None, None)], "migração do banco antigo"
-migrado.close()
+con.close()
 print("ok: todas as regras do banco funcionam")

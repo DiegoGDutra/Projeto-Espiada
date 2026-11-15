@@ -4,16 +4,16 @@ Base inteiramente sintética, criada para ensino de banco de dados, estatística
 
 ## Escopo
 
-- 120 alunos, 8 períodos e exatamente 5 disciplinas curriculares por período (40 disciplinas).
+- 5000 alunos e 450 docentes (18 a cada 200 alunos), 8 períodos e exatamente 5 disciplinas curriculares por período (40 disciplinas). Os alunos 1-120 são os originais; os demais foram gerados por `scripts/ampliar_dados.py` com as mesmas regras.
 - 8 semestres letivos, de 2023-1 a 2026-2, com histórico e período atual.
-- 2949 registros acadêmicos, incluindo tentativas repetidas e 600 matrículas em andamento.
-- 57 alunos residentes fora de Anápolis e 53 bolsistas/financiados.
-- 20 eventos sintéticos de evasão na janela de 12 meses.
-- 12 frequências ausentes intencionais e notas parciais/finais ausentes em situações coerentes com disciplinas em andamento.
+- 2902 turmas (seções A, B, C... de 45 vagas) e 121310 registros acadêmicos, incluindo tentativas repetidas e 25000 matrículas em andamento.
+- 2622 alunos residentes fora de Anápolis e 2311 bolsistas/financiados.
+- 640 eventos sintéticos de evasão na janela de 12 meses.
+- 508 frequências ausentes intencionais e notas parciais/finais ausentes em situações coerentes com disciplinas em andamento.
 
 ## Uso recomendado
 
-1. Importe os arquivos de **csv_normalizados/** na ordem listada abaixo, após executar **schema_sqlite.sql**.
+1. Importe os arquivos de **csv_normalizados/** na ordem listada abaixo, após executar o **app/schema.sql** (o `scripts/importar.py` faz os dois passos).
 2. Use **simpa_visao_analitica.csv** apenas para exploração inicial, gráficos e protótipos de modelos. Ela é propositalmente desnormalizada.
 3. Separe a variável-alvo **evasao_observada** das variáveis preditoras. Não use **score_risco_percentual**, **classificacao_risco** ou **motivos_risco** como preditores de um modelo que pretenda reproduzir o desfecho, pois são indicadores derivados e podem causar vazamento de informação.
 4. Faça divisão treino/teste estratificada e avalie precisão, revocação, F1, ROC-AUC e matriz de confusão.

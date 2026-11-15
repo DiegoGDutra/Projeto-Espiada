@@ -1,19 +1,22 @@
 """Importa o dataset num banco temporário e confere as rotas, o formato JSON e as permissões de cada perfil.
 A LLM é simulada (nunca chama um Ollama de verdade): o teste vale com ou sem Ollama instalado.
-Rodar:  python src/teste_api.py"""
-import tempfile
+Rodar:  python testes/teste_api.py"""
+import sys
 import time
 from pathlib import Path
 
+RAIZ = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(RAIZ / "app"), str(RAIZ / "scripts")]  # o sistema fica em app/ e o importador em scripts/
+
 import Espiada
 from importar import LOGINS_PADRAO, importar
-from models import banco, llm
+from models import banco, llm, usuario
 from models.banco import ErroModelo
 from models.predicao import calcular_risco
 
-banco.BANCO = Path(tempfile.mkdtemp()) / "teste.db"  # não mexe no funcionaai.db
-qtd = importar(banco.BANCO)
-assert (qtd["alunos"], qtd["registros_academicos"], qtd["turmas"], qtd["usuario"]) == (120, 2949, 320, 3), qtd
+banco.usar_esquema_de_teste("teste_api")  # esquema próprio, recriado vazio: não mexe nos dados de verdade
+qtd = importar()
+assert (qtd["alunos"], qtd["registros_academicos"], qtd["turmas"], qtd["usuario"]) == (5000, 121310, 2902, 5451), qtd
 api = Espiada.app.test_client()
 
 
@@ -51,10 +54,12 @@ chama("POST", "/api/usuarios", {"login": "nao-email", "perfil": "secretaria", "n
 chama("POST", "/api/usuarios", {"login": "x@simpa.test", "perfil": "aluno", "nome": "X", "senha": SENHA,
                                 "vinculo": "XYZ"}, 400)
 chama("POST", "/api/usuarios", {"login": "x@simpa.test", "perfil": "admin", "nome": "X", "senha": SENHA}, 400)
-chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "aluno", "nome": "Ana", "senha": SENHA,
-                                "vinculo": "AES0002"}, 201)
+chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "secretaria", "nome": "Ana", "senha": SENHA}, 201)
 chama("POST", "/api/usuarios", {"login": "ada@simpa.test", "perfil": "professor", "nome": "Ada", "senha": SENHA,
-                                "vinculo": 2}, 201)
+                                "vinculo": 2}, 409)  # todo docente já tem login (docente2@simpa.test)
+# o importador dá login a todo aluno e docente, com a senha padrão do perfil
+assert usuario.autenticar("aes0002@simpa.test", SENHAS["aluno@simpa.test"])["aluno_id"] == 2
+assert usuario.autenticar("docente450@simpa.test", SENHAS["professor@simpa.test"])["docente_id"] == 450
 chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "secretaria", "nome": "X", "senha": SENHA}, 409)
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "aluno", "nome": "Y", "senha": SENHA,
                                 "vinculo": "AES0001"}, 409)  # AES0001 já tem login (o padrão)
@@ -62,9 +67,9 @@ assert "Teste" not in str(banco.consultar("SELECT senha_hash FROM usuario"))  # 
 
 # ---------- secretaria vê tudo ----------
 assert chama("GET", "/api/cursos")[0]["nome"] == "Engenharia de Software"
-assert len(chama("GET", "/api/disciplinas")) == 40 and len(chama("GET", "/api/docentes")) == 18
+assert len(chama("GET", "/api/disciplinas")) == 40 and len(chama("GET", "/api/docentes")) == 450
 alunos = chama("GET", "/api/alunos")
-assert len(alunos) == 120 and {a["risco"] for a in alunos} <= {"baixo", "medio", "alto"}
+assert len(alunos) == 5000 and {a["risco"] for a in alunos} <= {"baixo", "medio", "alto"}
 a = chama("GET", "/api/alunos/AES0001")
 assert a["matricula"] == "AES0001" and a["curso"] == "Engenharia de Software" and a["reclamacoes"] == 0, a
 assert a["disciplinas"] and all(0 <= d["nota_n1"] <= 100 for d in a["disciplinas"])
@@ -94,7 +99,7 @@ chama("POST", "/api/predicoes/recalcular", status=503)  # LLM fora do ar: avisa 
 
 def recalcula():
     chama("POST", "/api/predicoes/recalcular", status=202)
-    for _ in range(150):
+    for _ in range(1500):  # 5000 alunos: um lote leva perto de 1 minuto
         estado = chama("GET", "/api/predicoes/recalculo")
         if estado["estado"] != "rodando":
             return estado
@@ -106,9 +111,9 @@ llm.verificar = lambda: None
 llm.avaliar = lambda contexto: {"nivel": "medio", "comentario": "Teste em lote.", "modelo": "fake"}
 estado = recalcula()
 # o AES0001 já tinha uma análise da LLM com a mesma entrada: é pulado
-assert estado["estado"] == "concluido" and (estado["total"], estado["feitos"], estado["puladas"]) == (120, 119, 1), estado
+assert estado["estado"] == "concluido" and (estado["total"], estado["feitos"], estado["puladas"]) == (5000, 4999, 1), estado
 estado = recalcula()  # nada mudou desde a rodada anterior: todos pulados, nenhuma chamada nova à LLM
-assert (estado["feitos"], estado["puladas"], estado["falhas"]) == (0, 120, 0), estado
+assert (estado["feitos"], estado["puladas"], estado["falhas"]) == (0, 5000, 0), estado
 assert {x["risco_origem"] for x in chama("GET", "/api/alunos")} == {"llm"}  # as telas passam a mostrar a da LLM
 llm.avaliar = llm_fora  # LLM cai no meio do lote: 3 falhas seguidas interrompem
 estado = chama("POST", "/api/predicoes/recalcular?forcar=1", status=202)
@@ -144,8 +149,8 @@ entra("professor@simpa.test")
 meus = {r["codigo_academico"] for r in banco.consultar("""
     SELECT DISTINCT a.codigo_academico FROM registros_academicos JOIN turmas t USING (turma_id)
       JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id) WHERE t.docente_id = 1""")}
-assert 0 < len(meus) < 120 and {x["matricula"] for x in chama("GET", "/api/alunos")} == meus
-outro = next(f"AES{i:04}" for i in range(1, 121) if f"AES{i:04}" not in meus)
+assert 0 < len(meus) < 5000 and {x["matricula"] for x in chama("GET", "/api/alunos")} == meus
+outro = next(f"AES{i:04}" for i in range(1, 5001) if f"AES{i:04}" not in meus)
 meu = min(meus)
 chama("GET", f"/api/alunos/{meu}")
 chama("POST", f"/api/alunos/{meu}/predicao", status=201)

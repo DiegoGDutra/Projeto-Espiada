@@ -7,15 +7,15 @@ RESUMO_ALUNO = """
 SELECT a.codigo_academico AS matricula, a.nome_sintetico AS nome, c.nome AS curso,
        mc.periodo_atual AS periodo, mc.status AS situacao,
        ci.distancia_rodoviaria_aprox_km AS distancia,
-       (SELECT group_concat(d.nome, ', ') FROM registros_academicos r
+       (SELECT string_agg(d.nome, ', ') FROM registros_academicos r
           JOIN turmas t USING (turma_id) JOIN disciplinas d USING (disciplina_id)
          WHERE r.matricula_curso_id = mc.matricula_curso_id AND r.situacao = 'EM_CURSO') AS turma,
-       (SELECT round(avg(frequencia_percentual), 1) FROM registros_academicos r
+       (SELECT round(avg(frequencia_percentual)::numeric, 1)::float FROM registros_academicos r
          WHERE r.matricula_curso_id = mc.matricula_curso_id) AS freq,
-       (SELECT round(avg(coalesce(nota_final, nota_parcial)), 1) FROM registros_academicos r
+       (SELECT round(avg(coalesce(nota_final, nota_parcial))::numeric, 1)::float FROM registros_academicos r
          WHERE r.matricula_curso_id = mc.matricula_curso_id) AS nota,
        (SELECT count(*) FROM registros_academicos r
-         WHERE r.matricula_curso_id = mc.matricula_curso_id AND r.situacao LIKE 'REPROVADO%') AS reprovacoes,
+         WHERE r.matricula_curso_id = mc.matricula_curso_id AND starts_with(r.situacao, 'REPROVADO')) AS reprovacoes,
        (SELECT count(*) FROM feedback f
          WHERE f.aluno_id = a.aluno_id AND f.avaliacao_curso <= 2) AS reclamacoes,
        (SELECT count(*) FROM registros_academicos r
@@ -29,11 +29,11 @@ def filtro_visiveis(usuario):
     """Filtro SQL dos alunos que esse usuário pode ver: secretaria todos, professor os das turmas dele,
     aluno só ele mesmo. usuario é um dict com perfil, docente_id e aluno_id."""
     if usuario["perfil"] == "secretaria":
-        return "1", ()
+        return "TRUE", ()
     if usuario["perfil"] == "professor":  # alunos que já passaram por alguma turma dele
         return """mc.matricula_curso_id IN (SELECT r.matricula_curso_id FROM registros_academicos r
-                  JOIN turmas t USING (turma_id) WHERE t.docente_id = ?)""", (usuario["docente_id"],)
-    return "a.aluno_id = ?", (usuario["aluno_id"],)
+                  JOIN turmas t USING (turma_id) WHERE t.docente_id = %s)""", (usuario["docente_id"],)
+    return "a.aluno_id = %s", (usuario["aluno_id"],)
 
 
 def listar(usuario):
@@ -44,12 +44,12 @@ def listar(usuario):
 def buscar(matricula, usuario):
     """Resumo do aluno, ou None se não existe ou o usuário não pode ver."""
     filtro, args = filtro_visiveis(usuario)
-    achados = consultar(RESUMO_ALUNO + f" WHERE a.codigo_academico = ? AND {filtro}", matricula, *args)
+    achados = consultar(RESUMO_ALUNO + f" WHERE a.codigo_academico = %s AND {filtro}", matricula, *args)
     return achados[0] if achados else None
 
 
 def existe(matricula):
-    return bool(consultar("SELECT 1 FROM alunos WHERE codigo_academico = ?", matricula))
+    return bool(consultar("SELECT 1 FROM alunos WHERE codigo_academico = %s", matricula))
 
 
 def comentarios(matricula, limite=3):
@@ -57,8 +57,8 @@ def comentarios(matricula, limite=3):
     return consultar("""
         SELECT f.alvo, f.avaliacao_curso AS avaliacao, f.comentarios AS comentario
           FROM feedback f JOIN alunos a USING (aluno_id)
-         WHERE a.codigo_academico = ? AND (f.avaliacao_curso IS NOT NULL OR coalesce(f.comentarios, '') <> '')
-         ORDER BY f.feedback_id DESC LIMIT ?""", matricula, limite)
+         WHERE a.codigo_academico = %s AND (f.avaliacao_curso IS NOT NULL OR coalesce(f.comentarios, '') <> '')
+         ORDER BY f.feedback_id DESC LIMIT %s""", matricula, limite)
 
 
 def disciplinas(matricula):
@@ -68,4 +68,4 @@ def disciplinas(matricula):
                r.frequencia_percentual, r.faltas_horas
           FROM registros_academicos r JOIN turmas t USING (turma_id) JOIN disciplinas d USING (disciplina_id)
           JOIN matriculas_curso mc USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
-         WHERE a.codigo_academico = ? ORDER BY semestre, d.nome""", matricula)
+         WHERE a.codigo_academico = %s ORDER BY semestre, d.nome""", matricula)

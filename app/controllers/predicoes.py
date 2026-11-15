@@ -1,5 +1,5 @@
 """Recálculo das predições de todos os alunos (regras + LLM): roda em segundo plano e o andamento fica numa consulta.
-Só a secretaria dispara. Também existe como comando de terminal:  flask --app src/Espiada.py recalcular-predicoes"""
+Só a secretaria dispara. Também existe como comando de terminal:  flask --app app/Espiada.py recalcular-predicoes"""
 import threading
 
 import click
