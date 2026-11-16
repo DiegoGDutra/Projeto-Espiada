@@ -35,7 +35,12 @@ def criar(login, perfil, nome, senha, vinculo=None):
         if not achado:
             raise ErroModelo(400, "vinculo deve ser o docente_id de um docente existente")
         docente_id = achado[0]["docente_id"]
-    with transacao() as con:  # perfil inválido ou vínculo/login repetido: o banco recusa
-        con.execute("INSERT INTO usuario VALUES (%s, %s, %s, %s, %s, %s)",
-                    (login, perfil, nome, generate_password_hash(str(senha)), aluno_id, docente_id))
+    try:
+        with transacao() as con:  # perfil inválido ou vínculo/login repetido: o banco recusa
+            con.execute("INSERT INTO usuario VALUES (%s, %s, %s, %s, %s, %s)",
+                        (login, perfil, nome, generate_password_hash(str(senha)), aluno_id, docente_id))
+    except ErroModelo as e:
+        if e.status == 409:  # a mensagem do banco ("duplicate key...") não diz nada para quem usa a tela
+            raise ErroModelo(409, "já existe um usuário com esse e-mail, ou esse aluno/docente já tem login") from e
+        raise
     return {"login": login, "perfil": perfil, "nome": nome, "aluno_id": aluno_id, "docente_id": docente_id}

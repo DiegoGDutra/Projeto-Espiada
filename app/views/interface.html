@@ -292,7 +292,6 @@ tbody tr:last-child td{border-bottom:none;}
   <!-- MEU DESEMPENHO (aluno) -->
   <section class="section" id="sec-meu">
     <div class="panel ficha" id="minhaFicha"><p class="vazio">Carregando…</p></div>
-    <!-- formulário só de demonstração, não envia nada (a rota POST /api/alunos/<m>/feedback já existe) -->
     <form class="panel" id="feedbackForm">
       <h3>Enviar feedback</h3>
       <div class="form-grid">
@@ -311,6 +310,10 @@ tbody tr:last-child td{border-bottom:none;}
       <button class="btn">Enviar feedback</button>
       <p class="msg" id="feedbackMsg"></p>
     </form>
+    <div class="panel ficha">
+      <h3>Meus feedbacks</h3>
+      <div id="meusFeedbacks"><p class="vazio">Carregando…</p></div>
+    </div>
   </section>
 
   <!-- PAINEL -->
@@ -381,10 +384,18 @@ tbody tr:last-child td{border-bottom:none;}
 
   <!-- TURMAS -->
   <section class="section" id="sec-turmas">
-    <div class="panel placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-      <h3>Turmas e cursos</h3>
-      <p>Nesta versão de exemplo, a gestão de turmas e cursos ainda não foi implementada. Os dados aparecem agrupados nas telas de Painel e Monitoramento.</p>
+    <div class="panel">
+      <div class="filters">
+        <input type="text" id="turmaBusca" placeholder="Buscar por código, disciplina ou docente...">
+        <select id="turmaSemestre" aria-label="Semestre"><option value="">Todos os semestres</option></select>
+      </div>
+      <p class="vazio" id="turmaTotal" style="margin-bottom:10px"></p>
+      <div class="table-wrap">
+        <table class="ficha">
+          <thead><tr><th>Turma</th><th>Disciplina</th><th>Docente</th><th>Semestre</th><th>Turno</th><th>Modalidade</th><th>Vagas</th></tr></thead>
+          <tbody id="turmaBody"><tr><td colspan="7" class="vazio">Carregando…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -399,14 +410,16 @@ tbody tr:last-child td{border-bottom:none;}
 
   <!-- CONFIG -->
   <section class="section" id="sec-config">
-    <div class="panel placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6"/></svg>
-      <h3>Cadastrar usuário</h3>
-      <p>Em desenvolvimento. O cadastro de usuários pela tela estará disponível em uma próxima etapa do protótipo.</p>
+    <div class="panel">
+      <h3>Recalcular predições</h3>
+      <p class="vazio" style="margin-bottom:12px">Gera de novo a predição (regras + LLM) de todos os alunos, em segundo plano. Quem não mudou desde a última análise é pulado.</p>
+      <div class="predict-box" style="margin-bottom:0">
+        <button class="btn" id="recalcBtn">Recalcular</button>
+        <label class="vazio"><input type="checkbox" id="recalcForcar"> Reanalisar também quem não mudou</label>
+      </div>
+      <p class="msg" id="recalcMsg"></p>
     </div>
-    <!-- formulário escondido enquanto está "em desenvolvimento"; a rota POST /api/usuarios e o
-         comando flask criar-usuario continuam funcionando. Para voltar a mostrar, tire o hidden. -->
-    <form class="panel" id="cadastroForm" hidden>
+    <form class="panel" id="cadastroForm">
       <h3>Cadastrar usuário</h3>
       <div class="form-grid">
         <label>E-mail (login)<input name="login" type="email" required></label>
@@ -475,12 +488,83 @@ document.getElementById("cadastroForm").addEventListener("submit", async e=>{
     e.target.reset(); cadPerfil.dispatchEvent(new Event("change"));
   }catch(err){ msg.style.color = "var(--risk-high)"; msg.textContent = err.message; }
 });
-// feedback de demonstração: só mostra a confirmação, nada vai para a API nem para o banco
-document.getElementById("feedbackForm").addEventListener("submit", e=>{
+// feedback do aluno: grava pela API e atualiza a lista "Meus feedbacks"
+let minhaMatricula = null;
+const feedbacksHtml = (lista, vazio) => lista.length ? lista.map(f=>`
+  <div class="hist-row"><span>${quando(f.criado_em)} · ${f.alvo==="curso"?"Curso":"Instituição"}</span>
+    <span class="badge ${f.avaliacao_curso<=2?"alto":"neutro"}">${f.avaliacao_curso ?? "—"}/5</span></div>
+  ${f.comentarios ? `<div class="vazio hist-com">${esc(f.comentarios)}</div>` : ""}`).join("")
+  : `<p class="vazio">${vazio}</p>`;
+async function mostrarFeedbacks(){
+  const el = document.getElementById("meusFeedbacks");
+  try{ el.innerHTML = feedbacksHtml(await api(`/api/alunos/${minhaMatricula}/feedback`), "Você ainda não enviou nenhum feedback."); }
+  catch(err){ el.innerHTML = `<p class="erro-msg">${esc(err.message)}</p>`; }
+}
+
+// recálculo em lote (só secretaria): dispara em segundo plano e acompanha o andamento a cada segundo
+const recalcBtn = document.getElementById("recalcBtn"), recalcMsg = document.getElementById("recalcMsg");
+async function acompanharRecalculo(){
+  let e;
+  try{ e = await api("/api/predicoes/recalculo"); }
+  catch(err){ recalcMsg.style.color = "var(--risk-high)"; recalcMsg.textContent = err.message; recalcBtn.disabled = false; return; }
+  const resumo = `${e.feitos} analisados, ${e.puladas} pulados, ${e.falhas} falhas`;
+  recalcBtn.disabled = e.estado==="rodando";
+  if(e.estado==="rodando"){
+    recalcMsg.style.color = "var(--text-soft)";
+    recalcMsg.textContent = `Recalculando… ${e.feitos+e.puladas+e.falhas} de ${e.total || "?"} (${resumo})`;
+    setTimeout(acompanharRecalculo, 1000);
+  }else if(e.estado==="concluido"){
+    recalcMsg.style.color = "var(--risk-low)"; recalcMsg.textContent = `Recálculo concluído: ${resumo}.`;
+    alunos.splice(0, alunos.length, ...await api("/api/alunos")); renderPainel(); renderTable();  // riscos novos nas telas
+  }else if(e.estado==="erro"){
+    recalcMsg.style.color = "var(--risk-high)"; recalcMsg.textContent = `${e.erro} (${resumo}).`;
+  }
+}
+recalcBtn.addEventListener("click", async ()=>{
+  recalcBtn.disabled = true; recalcMsg.textContent = "";
+  try{
+    await api("/api/predicoes/recalcular" + (document.getElementById("recalcForcar").checked ? "?forcar=1" : ""), {method:"POST"});
+    acompanharRecalculo();
+  }catch(err){ recalcBtn.disabled = false; recalcMsg.style.color = "var(--risk-high)"; recalcMsg.textContent = err.message; }
+});
+
+// aba Turmas: junta turmas, disciplinas e docentes (rotas só de leitura) numa tabela com busca e filtro por semestre
+let turmas = [];
+async function carregarTurmas(){
+  try{
+    const [lista, disciplinas, docentes] = await Promise.all(["turmas","disciplinas","docentes"].map(r=>api("/api/"+r)));
+    const disc = Object.fromEntries(disciplinas.map(d=>[d.disciplina_id, d.nome]));
+    const doc = Object.fromEntries(docentes.map(d=>[d.docente_id, d.nome_sintetico]));
+    turmas = lista.map(t=>({...t, disciplina:disc[t.disciplina_id], docente:doc[t.docente_id],
+      semestre:`${t.ano_letivo}.${t.semestre_letivo}`}));
+    [...new Set(turmas.map(t=>t.semestre))].sort().reverse()
+      .forEach(s=>document.getElementById("turmaSemestre").add(new Option(s, s)));
+    renderTurmas();
+  }catch(err){ document.getElementById("turmaBody").innerHTML = `<tr><td colspan="7" class="erro-msg">${esc(err.message)}</td></tr>`; }
+}
+function renderTurmas(){
+  const busca = document.getElementById("turmaBusca").value.toLowerCase(), sem = document.getElementById("turmaSemestre").value;
+  const rows = turmas.filter(t=>(sem===""||t.semestre===sem) &&
+    `${t.codigo_turma} ${t.disciplina} ${t.docente}`.toLowerCase().includes(busca));
+  document.getElementById("turmaTotal").textContent = `${rows.length} turma${rows.length===1?"":"s"}`;
+  document.getElementById("turmaBody").innerHTML = rows.map(t=>`<tr><td>${esc(t.codigo_turma)}</td><td>${esc(t.disciplina)}</td>
+    <td>${esc(t.docente)}</td><td>${t.semestre}</td><td>${esc(t.turno)}</td><td>${esc(t.modalidade)}</td><td>${t.vagas}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="vazio">Nenhuma turma encontrada.</td></tr>`;
+}
+document.getElementById("turmaBusca").addEventListener("input", renderTurmas);
+document.getElementById("turmaSemestre").addEventListener("change", renderTurmas);
+document.getElementById("feedbackForm").addEventListener("submit", async e=>{
   e.preventDefault();
-  const msg = document.getElementById("feedbackMsg");
-  msg.style.color = "var(--risk-low)"; msg.textContent = "Feedback enviado. Obrigado pela participação!";
-  e.target.reset();
+  const dados = Object.fromEntries(new FormData(e.target)), msg = document.getElementById("feedbackMsg");
+  const botao = e.target.querySelector("button");
+  dados.avaliacao_curso = Number(dados.avaliacao_curso);
+  botao.disabled = true;
+  try{
+    await api(`/api/alunos/${minhaMatricula}/feedback`,{json:dados});
+    msg.style.color = "var(--risk-low)"; msg.textContent = "Feedback enviado. Obrigado pela participação!";
+    e.target.reset(); mostrarFeedbacks();
+  }catch(err){ msg.style.color = "var(--risk-high)"; msg.textContent = err.message; }
+  finally{ botao.disabled = false; }
 });
 const riskLabel = {alto:"Alto",medio:"Médio",baixo:"Baixo"};
 const riskColor = {alto:"var(--risk-high)",medio:"var(--risk-med)",baixo:"var(--risk-low)"};
@@ -683,7 +767,9 @@ function atualizaRisco(matricula, r){
 async function mostrarFicha(matricula, el, resultado=null){
   el.innerHTML = `<p class="vazio">Carregando…</p>`;
   try{
-    const [a, hist] = await Promise.all([api(`/api/alunos/${matricula}`), api(`/api/alunos/${matricula}/predicao`)]);
+    // professor e secretaria também veem os feedbacks do aluno na ficha (o aluno vê os dele em "Meus feedbacks")
+    const [a, hist, fbs] = await Promise.all([api(`/api/alunos/${matricula}`), api(`/api/alunos/${matricula}/predicao`),
+      perfil!=="aluno" ? api(`/api/alunos/${matricula}/feedback`) : null]);
     const fatores = resultado?.fatores;  // só logo depois de gerar uma predição
     const semestres = [...new Set(a.disciplinas.map(d=>d.semestre))].sort().reverse();  // mais recente primeiro
     el.innerHTML = `
@@ -707,6 +793,7 @@ async function mostrarFicha(matricula, el, resultado=null){
           <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"} · ${h.origem==="llm" ? "LLM" : "regras"}</span></span></div>
         ${h.comentario_predicao ? `<div class="vazio hist-com">${esc(h.comentario_predicao)}</div>` : ""}`).join("")
         : `<p class="vazio">Nenhuma predição gerada ainda.</p>`}</div>
+      ${fbs ? `<h4>Feedbacks do aluno</h4>${feedbacksHtml(fbs, "O aluno ainda não enviou nenhum feedback.")}` : ""}
       ${semestres.map(sem=>`
         <h4>Semestre ${sem}</h4>
         <div class="table-wrap"><table>
@@ -769,7 +856,11 @@ Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   document.querySelector(".nav-item").click();  // abre a primeira aba do perfil
   alunos.push(...lista);
   fillFilterTurma(); renderPainel(); fillPredictSelect(); renderTable();
-  if(perfil==="aluno") mostrarFicha(lista[0].matricula, document.getElementById("minhaFicha"));  // aluno só recebe ele mesmo
+  if(perfil==="aluno"){  // aluno só recebe ele mesmo
+    minhaMatricula = lista[0].matricula;
+    mostrarFicha(minhaMatricula, document.getElementById("minhaFicha")); mostrarFeedbacks();
+  }else carregarTurmas();
+  if(perfil==="secretaria") acompanharRecalculo();  // retoma o andamento se já houver um recálculo rodando
 });
 ["searchInput","filterTurma","filterRisco"].forEach(id=>{
   document.getElementById(id).addEventListener("input",renderTable);

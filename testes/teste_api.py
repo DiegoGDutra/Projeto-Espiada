@@ -60,7 +60,7 @@ chama("POST", "/api/usuarios", {"login": "ada@simpa.test", "perfil": "professor"
 # o importador dá login a todo aluno e docente, com a senha padrão do perfil
 assert usuario.autenticar("aes0002@simpa.test", SENHAS["aluno@simpa.test"])["aluno_id"] == 2
 assert usuario.autenticar("docente450@simpa.test", SENHAS["professor@simpa.test"])["docente_id"] == 450
-chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "secretaria", "nome": "X", "senha": SENHA}, 409)
+assert "já existe" in chama("POST", "/api/usuarios", {"login": "ana@simpa.test", "perfil": "secretaria", "nome": "X", "senha": SENHA}, 409)["erro"]
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "aluno", "nome": "Y", "senha": SENHA,
                                 "vinculo": "AES0001"}, 409)  # AES0001 já tem login (o padrão)
 assert "Teste" not in str(banco.consultar("SELECT senha_hash FROM usuario"))  # só hash
@@ -141,6 +141,9 @@ chama("GET", "/api/predicoes/recalculo", status=403)
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "secretaria", "nome": "Y", "senha": SENHA}, 403)
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso", "avaliacao_curso": 1, "comentarios": "ruim"}, 201)
 assert chama("GET", "/api/alunos/AES0001")["reclamacoes"] == 1
+fb = chama("GET", "/api/alunos/AES0001/feedback")
+assert len(fb) == 1 and fb[0]["comentarios"] == "ruim" and fb[0]["avaliacao_curso"] == 1, fb
+chama("GET", "/api/alunos/AES0002/feedback", status=403)
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "professor"}, 400)
 chama("POST", "/api/alunos/AES0001/feedback", ["não é objeto"], 400)
 

@@ -16,10 +16,12 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 - **Monitoramento:** tabela com todos os alunos visíveis, com turma, frequência, nota, reprovações e risco. Tem busca por nome e filtros por turma e por nível de risco. Clicar no aluno abre a ficha dele.
 - **Ficha do aluno:** notas e frequência de cada disciplina, separadas por semestre, e o histórico de predições de risco.
 - **Predição de risco:** o professor ou a secretaria escolhe um aluno e gera a classificação. O sistema soma pontos por regras, pede a opinião de uma LLM local e mostra o nível final, os fatores que pesaram, o comentário da LLM e os ajustes feitos pelas regras duras. A seção [Como o risco é calculado](#como-o-risco-é-calculado) explica cada passo.
-- **Recálculo em lote:** a secretaria pode recalcular a predição de todos os alunos de uma vez, em segundo plano. Quem não mudou desde a última análise é pulado.
+- **Recálculo em lote:** a secretaria pode recalcular a predição de todos os alunos de uma vez, em segundo plano, pelo botão Recalcular da aba Config., que mostra o andamento. Quem não mudou desde a última análise é pulado.
 - **Histórico que não se perde:** cada predição vira uma linha nova no banco. Nada é sobrescrito, então dá para ver como o risco de um aluno mudou ao longo do tempo.
 - **Perfis de acesso:** o aluno vê só o próprio desempenho; o professor vê só os alunos que passaram pelas turmas dele; a secretaria vê todos e cadastra usuários. Qualquer tentativa fora disso é negada e registrada no log.
-- **Feedback do aluno:** o aluno avalia o curso ou a instituição. A rota que grava o feedback já funciona, mas o formulário da tela ainda é só demonstração e não envia nada.
+- **Feedback do aluno:** na tela Meu desempenho, o aluno avalia o curso ou a instituição (nota de 1 a 5 e comentário opcional) e vê a lista dos feedbacks que já enviou. O professor e a secretaria veem os feedbacks na ficha do aluno. Avaliação 1 ou 2 conta como reclamação no cálculo de risco.
+- **Turmas:** a aba Turmas lista as turmas com disciplina, docente, semestre, turno, modalidade e vagas, com busca e filtro por semestre.
+- **Cadastro de usuários:** a secretaria cadastra aluno, professor ou secretaria pela aba Config.
 
 ## Como o risco é calculado
 
@@ -120,7 +122,7 @@ O importador cria um login padrão de cada perfil:
 
 Os demais alunos e docentes também ganham login, com a senha padrão do perfil: `aes0002@simpa.test` a `aes5000@simpa.test` (senha `Aluno#2026`) e `docente2@simpa.test` a `docente450@simpa.test` (senha `Professor#2026`).
 
-Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `flask --app app/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, ou pela rota `POST /api/usuarios`; a tela de cadastro na aba Config. ainda está em desenvolvimento.
+Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `flask --app app/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, pela rota `POST /api/usuarios` ou pela aba Config. (só secretaria).
 
 A senha precisa ter 8 ou mais caracteres, com maiúscula, minúscula, número e caractere especial, e fica guardada no banco apenas como hash. Depois de 5 senhas erradas seguidas, o login fica bloqueado por 15 minutos. A sessão fica num cookie assinado e protegido (`HttpOnly`, `SameSite=Strict`). Em uso real, defina a variável de ambiente `SECRET_KEY`; sem ela, o servidor gera uma chave nova a cada vez que sobe e todo mundo precisa entrar de novo.
 
@@ -274,7 +276,7 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 - **Sessão e usuários:** `POST /api/login`, `POST /api/logout`, `GET /api/sessao` e `POST /api/usuarios` (só secretaria).
 - **Estrutura acadêmica:** `GET /api/cursos`, `/api/disciplinas`, `/api/docentes` e `/api/turmas`.
-- **Alunos:** `GET /api/alunos` (lista com indicadores e risco atual), `GET /api/alunos/{matricula}` (ficha com as disciplinas) e `POST /api/alunos/{matricula}/feedback` (só o próprio aluno).
+- **Alunos:** `GET /api/alunos` (lista com indicadores e risco atual), `GET /api/alunos/{matricula}` (ficha com as disciplinas) `POST /api/alunos/{matricula}/feedback` (só o próprio aluno) e `GET` na mesma rota (feedbacks do aluno, para quem pode vê-lo).
 - **Predições:** `POST /api/alunos/{matricula}/predicao` gera e grava uma predição, e `GET` na mesma rota devolve o histórico; `POST /api/predicoes/recalcular` e `GET /api/predicoes/recalculo` cuidam do recálculo em lote (só secretaria).
 
 ## Limitações conhecidas
@@ -287,8 +289,6 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 **Dados que o dataset não tem.** Entrega de atividades não existe no dataset, então não entra no cálculo. Cada período tem 625 alunos, divididos em seções de turma (A, B, C...) de 45 vagas, mas o painel agrupa por período; como todos do mesmo período entraram juntos, turma, período e ano de ingresso dão o mesmo agrupamento.
 
-**Feedback só de demonstração.** O formulário do aluno mostra a confirmação na tela, mas não chama a API nem grava no banco.
-
 **Recálculo em memória.** O andamento do recálculo em lote fica na memória do servidor: reiniciar o servidor o zera, e o modo de desenvolvimento do Flask pode interromper o lote ao recarregar o código.
 
 **Uso local.** O servidor roda no modo de desenvolvimento do Flask, sem HTTPS, o que serve para teste, não para produção. O Ollama não tem autenticação: se `OLLAMA_URL` apontar para outra máquina, use só em rede confiável, porque os dados viajam sem criptografia.
@@ -299,11 +299,11 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 - Treinar e integrar um modelo preditivo supervisionado, que gere a previsão de evasão a partir da tendência dos dados de cada aluno ao longo dos semestres, usando `desfechos_alunos` (quem de fato evadiu) como rótulo do treino.
 - Tratar os dados enviados à LLM de acordo com a LGPD.
 - Deixar os pesos das regras configuráveis, com rota e tela.
-- Ligar o formulário de feedback à API e mostrar os feedbacks para o professor.
 - Avisar a coordenação sobre alunos em alto risco por WhatsApp ou Telegram.
 - Exportar relatórios em PDF e CSV, por aluno, turma e curso.
+- Mostrar os alunos e o risco de cada turma na aba Turmas, com o professor vendo só as próprias turmas.
 - Permitir a alteração manual de uma predição, sempre com justificativa.
-- Recalcular automaticamente quando chegarem dados novos e pôr um botão de recálculo na tela.
+- Recalcular automaticamente quando chegarem dados novos.
 - Servir o sistema por HTTPS e testar com vários usuários ao mesmo tempo.
 
 O andamento de cada funcionalidade está em [`roadmap.md`](roadmap.md).

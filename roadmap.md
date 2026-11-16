@@ -18,7 +18,7 @@
 | Filtros de alunos | 100% | Busca por nome, filtro por turma e por nível de risco no Monitoramento; filtro por turma no Painel | — |
 | Histórico individual do aluno | 100% | Ficha com notas e frequência por semestre e histórico de predições | - |
 | Gráficos de desempenho | 60% | Barras (% de alto risco por turma), barras empilhadas (alto/médio/baixo por turma), rosca (distribuição geral) e rede/radar (alunos com risco por turma), feitos em CSS e SVG sem biblioteca | Gráficos por aluno, de frequência e de notas |
-| Aba Turmas | 10% | Rota `GET /api/turmas` existe | A aba é só um aviso de "não implementado" |
+| Aba Turmas | 80% | Tabela com as turmas (disciplina, docente, semestre, turno, modalidade, vagas), busca e filtro por semestre, a partir de `GET /api/turmas`, `/api/disciplinas` e `/api/docentes` | Alunos e risco por turma; professor ver só as próprias turmas |
 | Alunos que mudaram de situação | 0% | — | Listar quem mudou de nível de risco, do mais recente para o mais antigo (impossível pois o dados não serão analisados e disponibilizados com o tempo)|
 
 ## Cálculo de risco e predição
@@ -30,17 +30,17 @@
 | Alto risco só com histórico mínimo | 90% | Teto "médio" com menos de 8 registros (`HISTORICO_MINIMO`), pois pode ser um aluno sem nota ou matriculado recentemente; vence a regra da frequência quando as duas valem | Confirmar o valor do mínimo (no dataset, qualquer valor de 6 a 10 pega os mesmos 625 alunos do 1º período) |
 | Pesos configuráveis | 0% | Pesos fixos na lista `REGRAS` de `app/models/predicao.py` | Guardar os pesos no banco, criar rota e tela para editar |
 | Predição com LLM (Ollama) | 85% | `qwen3:4b` local via `app/models/llm.py`, usado em testes locais: contexto sem nome nem matrícula, saída em JSON validada, limite de 1 nível sobre as regras, fallback para as regras se o Ollama cair, origem/modelo/comentário no histórico e na tela; explicação na seção "Como o risco é calculado" do `readme.md`; `testes/teste_llm.py` com Ollama simulado | Validar com o Ollama de verdade; tratar os dados enviados de acordo com a LGPD; medir o tempo por aluno e ajustar o prompt com o gabarito (`desfechos_alunos`) |
-| Recálculo das predições | 70% | Comando `recalcular-predicoes` e `POST /api/predicoes/recalcular` (segundo plano, só secretaria); pula quem não mudou (hash da entrada) e para se a LLM falhar 3 vezes seguidas | Gatilho automático quando chegarem dados novos (hoje o `importar.py` não importa de novo); botão na aba Config.; medir com a LLM real a meta de 1000 alunos em até 5 min (com a LLM simulada, os 5000 alunos levam cerca de 30 a 40 s) |
+| Recálculo das predições | 80% | Comando `recalcular-predicoes`, `POST /api/predicoes/recalcular` (segundo plano, só secretaria) e botão na aba Config. com o andamento; pula quem não mudou (hash da entrada) e para se a LLM falhar 3 vezes seguidas | Gatilho automático quando chegarem dados novos (hoje o `importar.py` não importa de novo); medir com a LLM real a meta de 1000 alunos em até 5 min (com a LLM simulada, os 5000 alunos levam cerca de 30 a 40 s) |
 | Alteração manual de predição | 20% | Colunas `alterada_por` e `justificativa` com `CHECK` exigindo justificativa | Rota e tela; só secretaria ou o professor da turma pode alterar |
 
 ## Relatórios, feedback e notificações
 
 | Funcionalidade | % | Feito | Falta |
 |---|---|---|---|
-| Feedback do aluno | 65% | Tabela `feedback`, rota `POST /api/alunos/{matricula}/feedback` (só o próprio aluno) e teste; formulário na tela Meu desempenho (só demonstração, não grava) | Ligar o formulário à rota; seção "feedbacks dos alunos" para o professor |
+| Feedback do aluno | 100% | Tabela `feedback`, rotas `POST` e `GET /api/alunos/{matricula}/feedback` (enviar só o próprio aluno) e teste; formulário na tela Meu desempenho grava pela API e lista os feedbacks já enviados; professor e secretaria veem os feedbacks na ficha do aluno | — |
 | Relatórios exportáveis (PDF/CSV) | 0% | A aba Relatórios é só um aviso | Exportar por aluno, por turma e por curso; relatório final de desempenho para o aluno |
 | Notificação de alto risco | 0% | — | Avisar a coordenação por WhatsApp ou Telegram, sem repetir o mesmo aluno em 24 h |
-| Configurações da plataforma | 30% | Aba Config. com o formulário de cadastro de usuário pronto, mas escondido (marcado como em desenvolvimento) | Critérios de risco, perfis de acesso, dados institucionais |
+| Configurações da plataforma | 50% | Aba Config. com o cadastro de usuário e o recálculo em lote das predições | Critérios de risco, perfis de acesso, dados institucionais |
 
 ## Segurança, LGPD e qualidade
 

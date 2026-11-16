@@ -9,3 +9,11 @@ def registrar(matricula, alvo, comentarios=None, avaliacao_curso=None):
             SELECT aluno_id, %s, %s, %s FROM alunos WHERE codigo_academico = %s
             RETURNING feedback_id""", (alvo, comentarios, avaliacao_curso, matricula)).fetchone()
     return consultar("SELECT * FROM feedback WHERE feedback_id = %s", novo_id["feedback_id"])[0]
+
+
+def listar(matricula):
+    """Feedbacks do aluno, do mais novo para o mais antigo."""
+    return consultar("""
+        SELECT f.feedback_id, f.alvo, f.avaliacao_curso, f.comentarios, f.criado_em
+          FROM feedback f JOIN alunos a USING (aluno_id)
+         WHERE a.codigo_academico = %s ORDER BY f.feedback_id DESC""", matricula)

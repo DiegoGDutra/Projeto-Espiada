@@ -40,6 +40,12 @@ def registrar_feedback(matricula):
                                       dados.get("avaliacao_curso"))), 201
 
 
+@bp.get("/api/alunos/<matricula>/feedback")
+def listar_feedback(matricula):
+    aluno_visivel(matricula)
+    return jsonify(feedback.listar(matricula))
+
+
 @bp.post("/api/alunos/<matricula>/predicao")
 def gerar_predicao(matricula):
     exige("professor", "secretaria")  # aluno só consulta
