@@ -10,7 +10,7 @@ sys.path[:0] = [str(RAIZ / "app"), str(RAIZ / "scripts")]  # o sistema fica em a
 
 import Espiada
 from importar import LOGINS_PADRAO, importar
-from models import banco, llm, usuario
+from models import avaliacao, banco, llm, usuario
 from models.banco import ErroModelo
 from models.predicao import calcular_risco
 
@@ -125,6 +125,28 @@ for _ in range(150):
 assert estado["estado"] == "erro" and estado["falhas"] == 3 and "interrompido" in estado["erro"], estado
 llm.verificar = llm_fora
 
+# ---------- avaliação do modelo: métricas com números conhecidos e a rota com o dataset inteiro ----------
+assert avaliacao.metricas([True, True, False, False], [True, False, True, False]) == {
+    "vp": 1, "fp": 1, "fn": 1, "vn": 1, "acuracia": 0.5, "precisao": 0.5, "revocacao": 0.5, "especificidade": 0.5,
+    "f1": 0.5}
+assert avaliacao.metricas([False, False], [True, False])["precisao"] is None  # ninguém apontado: precisão indefinida
+assert avaliacao.auc([2, 1, 0], [True, False, False]) == 1.0  # separa perfeitamente
+assert avaliacao.auc([1, 1], [True, False]) == 0.5 and avaliacao.auc([0, 2], [True, False]) == 0.0  # empate e invertido
+assert avaliacao.auc([1, 2], [True, True]) is None  # sem quem não evadiu, não há o que comparar
+av = chama("GET", "/api/avaliacao")
+assert (av["alunos"], av["evasoes"]) == (5000, 640) and av["acuracia_chute"] == 0.872, av
+regras = av["regras"]
+niveis = [calcular_risco(a)["risco"] for a in chama("GET", "/api/alunos")]  # as regras, calculadas por fora
+assert {n: d["alunos"] for n, d in regras["por_nivel"].items()} == {n: niveis.count(n) for n in ("baixo", "medio", "alto")}
+assert sum(d["evasoes"] for d in regras["por_nivel"].values()) == 640
+for m in regras["cortes"].values():
+    assert m["vp"] + m["fp"] + m["fn"] + m["vn"] == 5000 and m["vp"] + m["fn"] == 640, m
+assert regras["cortes"]["medio_ou_alto"]["revocacao"] >= regras["cortes"]["alto"]["revocacao"]  # corte frouxo pega mais
+assert 0.5 < regras["auc"] <= 1 and regras["roc"][0] == {"fpr": 0.0, "tpr": 0.0, "corte": None}
+assert (regras["roc"][-1]["fpr"], regras["roc"][-1]["tpr"]) == (1.0, 1.0)
+assert av["llm"]["alunos"] > 4900 and not av["llm"]["amostra_pequena"]  # o recálculo acima deu predição de LLM a quase todos
+assert av["llm"]["llm"]["alunos"] == av["llm"]["regras"]["alunos"] == av["llm"]["alunos"]  # mesmos alunos nos dois lados
+
 # ---------- aluno: só o próprio ----------
 chama("POST", "/api/logout")
 chama("GET", "/api/alunos", status=401)
@@ -138,6 +160,7 @@ chama("POST", "/api/alunos/AES0001/predicao", status=403)
 chama("GET", "/api/docentes", status=403)
 chama("POST", "/api/predicoes/recalcular", status=403)
 chama("GET", "/api/predicoes/recalculo", status=403)
+chama("GET", "/api/avaliacao", status=403)  # visão agregada da instituição: só secretaria
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "secretaria", "nome": "Y", "senha": SENHA}, 403)
 chama("POST", "/api/alunos/AES0001/feedback", {"alvo": "curso", "avaliacao_curso": 1, "comentarios": "ruim"}, 201)
 assert chama("GET", "/api/alunos/AES0001")["reclamacoes"] == 1
@@ -160,6 +183,7 @@ chama("POST", f"/api/alunos/{meu}/predicao", status=201)
 chama("GET", f"/api/alunos/{outro}", status=403)
 chama("POST", f"/api/alunos/{outro}/predicao", status=403)
 chama("POST", "/api/predicoes/recalcular", status=403)
+chama("GET", "/api/avaliacao", status=403)
 chama("POST", f"/api/alunos/{meu}/feedback", {"alvo": "curso"}, 403)
 chama("POST", "/api/usuarios", {"login": "y@simpa.test", "perfil": "secretaria", "nome": "Y", "senha": SENHA}, 403)
 

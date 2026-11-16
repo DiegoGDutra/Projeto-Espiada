@@ -42,7 +42,7 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 
 - Nota e frequência só entram pelo importador. Nenhuma rota ou tela escreve nesses campos.
 - Cada perfil vê só o que pode: aluno só ele mesmo, professor só alunos das próprias turmas, secretaria todos (`filtro_visiveis` em `app/models/alunos.py`).
-- `indicadores_risco` e `desfechos_alunos` nunca são entrada da predição (vazamento: são a resposta pronta / o gabarito).
+- `indicadores_risco` e `desfechos_alunos` nunca são entrada da predição (vazamento: são a resposta pronta / o gabarito). O gabarito só é lido em `app/models/avaliacao.py`, para medir o acerto.
 - A LLM não recebe nome, matrícula, endereço nem outro identificador; o contexto é montado em `entrada_llm()`.
 - Regras duras valem acima da LLM: frequência < 75% força "alto"; menos de 8 registros limita a "médio"; a LLM só se afasta 1 nível das regras.
 - Predições nunca são sobrescritas: cada cálculo é uma linha nova em `predicao_ia`.

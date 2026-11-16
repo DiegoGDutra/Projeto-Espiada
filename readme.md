@@ -20,6 +20,7 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 - **Histórico que não se perde:** cada predição vira uma linha nova no banco. Nada é sobrescrito, então dá para ver como o risco de um aluno mudou ao longo do tempo.
 - **Perfis de acesso:** o aluno vê só o próprio desempenho; o professor vê só os alunos que passaram pelas turmas dele; a secretaria vê todos e cadastra usuários. Qualquer tentativa fora disso é negada e registrada no log.
 - **Feedback do aluno:** na tela Meu desempenho, o aluno avalia o curso ou a instituição (nota de 1 a 5 e comentário opcional) e vê a lista dos feedbacks que já enviou. O professor e a secretaria veem os feedbacks na ficha do aluno. Avaliação 1 ou 2 conta como reclamação no cálculo de risco.
+- **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC e a comparação entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
 - **Turmas:** a aba Turmas lista as turmas com disciplina, docente, semestre, turno, modalidade e vagas, com busca e filtro por semestre.
 - **Cadastro de usuários:** a secretaria cadastra aluno, professor ou secretaria pela aba Config.
 
@@ -52,6 +53,45 @@ O `qwen3:4b` foi usado **só em testes locais**. Os dados enviados a ele **não 
 A temperatura é 0 e a semente é fixa, então a mesma entrada dá a mesma resposta. O modelo fica carregado na memória por 30 minutos depois de cada uso; a primeira chamada é a mais lenta, porque carrega o modelo. As outras variáveis opcionais são `OLLAMA_URL` (padrão `http://localhost:11434`) e `OLLAMA_TIMEOUT` (padrão 120 segundos).
 
 **Recálculo em lote.** Pelo terminal, `flask --app app/Espiada.py recalcular-predicoes` analisa todos os alunos (`--forcar` reanalisa também quem não mudou). Pela API, a secretaria usa `POST /api/predicoes/recalcular` e acompanha o andamento em `GET /api/predicoes/recalculo`. Para saber quem mudou, o sistema guarda a cada análise um resumo (hash) do que a LLM recebeu, junto com o modelo e a versão do prompt; se o resumo for igual ao da última análise, o aluno é pulado. Antes de começar, o sistema confere se o Ollama responde, e se a LLM falhar três vezes seguidas, o lote para.
+
+## Avaliação do modelo de risco
+
+A aba **Avaliação** (só a secretaria; rota `GET /api/avaliacao`) compara o risco previsto com o que de fato aconteceu. A tabela `desfechos_alunos` é o gabarito: diz quem evadiu na janela de 12 meses (640 dos 5000 alunos, 12,8%). O código fica em `app/models/avaliacao.py`, e o gabarito só é lido ali, para medir; ele nunca entra no cálculo do risco.
+
+**As regras da avaliação**
+
+1. **O que conta como acerto.** Evasão é o caso "positivo". Para virar uma previsão de sim ou não, o nível de risco passa por um **corte**, escolhido na tela: **médio ou alto** (padrão: médio e alto contam como "previu evasão") ou **só alto** (mais exigente).
+2. **Matriz de confusão.** Cada aluno cai numa de quatro caixas: **verdadeiro positivo** (previu e evadiu), **falso positivo** (previu e o aluno ficou: alarme falso), **falso negativo** (não previu e o aluno evadiu: escapou) e **verdadeiro negativo** (não previu e o aluno ficou).
+3. **Métricas**, todas tiradas da matriz (VP, FP, FN e VN são as quatro caixas):
+
+   | Métrica | Conta | O que responde |
+   |---|---|---|
+   | Acurácia | (VP + VN) / total | Quantos alunos o modelo classificou certo |
+   | Precisão | VP / (VP + FP) | De quem o modelo apontou, quantos evadiram de fato |
+   | Revocação (sensibilidade) | VP / (VP + FN) | De quem evadiu, quantos o modelo apontou antes |
+   | Especificidade | VN / (VN + FP) | De quem ficou, quantos o modelo não apontou |
+   | F1 | 2 × precisão × revocação / (precisão + revocação) | Equilíbrio entre precisão e revocação |
+
+   Quando a conta divide por zero (por exemplo, precisão com ninguém apontado), o resultado aparece como "—".
+4. **A acurácia engana aqui.** Como só 12,8% evadem, quem "chuta" que ninguém evade já acerta 87,2% sem prever nada. Por isso as medidas que importam são revocação, precisão, F1 e AUC.
+5. **AUC e curva ROC.** A AUC é a chance de um aluno que evadiu, sorteado, ter pontuação de risco maior que um aluno que ficou (empate conta meio). 0,5 é o mesmo que sortear; 1 separa todo mundo. Ela é calculada pela pontuação das regras (0 a 7) e também pelo nível final (baixo, médio, alto). Na curva ROC, cada ponto é um corte da pontuação: quanto mais a curva sobe à esquerda da diagonal, melhor.
+6. **Evasão real por nível.** Mostra a taxa de evasão dos alunos de cada nível. Se o modelo ordena bem, ela sobe de baixo para alto.
+7. **LLM x regras.** Entram só os alunos cuja última predição guardada veio da LLM, e as regras são medidas **nesses mesmos alunos**, para a comparação ser justa. Com menos de 30 alunos, a tela avisa que não dá para concluir nada.
+
+**Resultado atual das regras (5000 alunos)**
+
+| Nível | Alunos | Evadiram | Taxa de evasão |
+|---|---|---|---|
+| Alto | 488 | 195 | 40,0% |
+| Médio | 1200 | 227 | 18,9% |
+| Baixo | 3312 | 218 | 6,6% |
+
+| Corte | Precisão | Revocação | F1 |
+|---|---|---|---|
+| Médio ou alto | 25,0% | 65,9% | 0,362 |
+| Só alto | 40,0% | 30,5% | 0,346 |
+
+A AUC é 0,745 pela pontuação e 0,707 pelo nível. As regras ordenam bem (no nível alto a evasão é 6 vezes a do baixo), mas deixam escapar 218 evasões classificadas como baixo risco (34% delas).
 
 ## Tecnologias
 
@@ -164,6 +204,7 @@ Projeto-Espiada/
     │   ├── alunos.py                # resumo com indicadores, ficha e quem pode ver quem
     │   ├── predicao.py              # regras, regras duras, decisão final, recálculo e histórico
     │   ├── llm.py                   # cliente do Ollama: prompt fixo e resposta validada
+    │   ├── avaliacao.py             # compara o risco previsto com o gabarito (matriz de confusão, F1, AUC)
     │   └── feedback.py              # comentários do aluno
     ├── controllers/                 # C: rotas HTTP
     │   ├── comum.py                 # leitura de JSON e checagem de perfil
@@ -277,11 +318,11 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 - **Sessão e usuários:** `POST /api/login`, `POST /api/logout`, `GET /api/sessao` e `POST /api/usuarios` (só secretaria).
 - **Estrutura acadêmica:** `GET /api/cursos`, `/api/disciplinas`, `/api/docentes` e `/api/turmas`.
 - **Alunos:** `GET /api/alunos` (lista com indicadores e risco atual), `GET /api/alunos/{matricula}` (ficha com as disciplinas) `POST /api/alunos/{matricula}/feedback` (só o próprio aluno) e `GET` na mesma rota (feedbacks do aluno, para quem pode vê-lo).
-- **Predições:** `POST /api/alunos/{matricula}/predicao` gera e grava uma predição, e `GET` na mesma rota devolve o histórico; `POST /api/predicoes/recalcular` e `GET /api/predicoes/recalculo` cuidam do recálculo em lote (só secretaria).
+- **Predições:** `POST /api/alunos/{matricula}/predicao` gera e grava uma predição, e `GET` na mesma rota devolve o histórico; `POST /api/predicoes/recalcular` e `GET /api/predicoes/recalculo` cuidam do recálculo em lote, e `GET /api/avaliacao` mede o acerto das predições (só secretaria).
 
 ## Limitações conhecidas
 
-**A LLM ainda não foi comparada com o gabarito.** Ninguém mediu se as predições com LLM acertam mais do que só as regras. A tabela `desfechos_alunos` permite fazer essa conta. Nas regras atuais, 218 das 640 evasões do dataset (34%) estão em alunos classificados como risco baixo (no dataset original de 120 alunos eram 9 das 20), e é aí que a LLM pode ajudar.
+**A LLM ainda não foi comparada em escala.** A aba Avaliação já mede regras e LLM lado a lado, mas só os alunos que têm predição da LLM guardada entram na comparação, e hoje são poucos. Falta rodar o recálculo em lote com o Ollama nos 5000 alunos. Nas regras atuais, 218 das 640 evasões do dataset (34%) estão em alunos classificados como risco baixo (no dataset original de 120 alunos eram 9 das 20), e é aí que a LLM pode ajudar.
 
 **Dados da LLM sem tratamento de LGPD.** A LLM foi usada só em testes locais com o `qwen3:4b`. O contexto enviado não leva nome, matrícula nem endereço, mas não passou por um tratamento de dados de acordo com a lei.
 
@@ -295,12 +336,13 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 ## Próximos passos
 
-- Comparar as predições com `desfechos_alunos` para saber se a LLM melhora o acerto e ajustar o prompt.
+- Rodar o recálculo em lote com o Ollama nos 5000 alunos e usar a aba Avaliação para ver se a LLM melhora o acerto das regras; ajustar o prompt com esse resultado.
 - Treinar e integrar um modelo preditivo supervisionado, que gere a previsão de evasão a partir da tendência dos dados de cada aluno ao longo dos semestres, usando `desfechos_alunos` (quem de fato evadiu) como rótulo do treino.
 - Tratar os dados enviados à LLM de acordo com a LGPD.
 - Deixar os pesos das regras configuráveis, com rota e tela.
 - Avisar a coordenação sobre alunos em alto risco por WhatsApp ou Telegram.
 - Exportar relatórios em PDF e CSV, por aluno, turma e curso.
+- Mais estatística no sistema: medidas descritivas (média, mediana, desvio padrão, quartis), histogramas e boxplots, taxas de aprovação por disciplina, fatores ligados à evasão e a avaliação do modelo de risco (matriz de confusão, F1, ROC/AUC). O detalhe está na seção Estatística do `roadmap.md`.
 - Mostrar os alunos e o risco de cada turma na aba Turmas, com o professor vendo só as próprias turmas.
 - Permitir a alteração manual de uma predição, sempre com justificativa.
 - Recalcular automaticamente quando chegarem dados novos.

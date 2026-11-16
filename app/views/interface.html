@@ -21,6 +21,7 @@
   --risk-med:#C98A2C;  --risk-med-bg:#FBF0DD;
   --risk-low:#2E8B57;  --risk-low-bg:#E3F3E8;
   --font:'Inter',system-ui,sans-serif;
+  --header-h:69px;  /* altura do cabeçalho fixo: a barra lateral começa logo abaixo dele */
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-padding-top:calc(96px + env(safe-area-inset-top,0px));}
@@ -33,7 +34,7 @@ header{
   background:#fff; border-bottom:1px solid var(--border);
 }
 .header-inner{
-  max-width:1180px; margin:0 auto; padding:14px 28px;
+  padding:14px 24px;
   display:flex; align-items:center; justify-content:space-between; gap:16px;
 }
 .brand{display:flex; align-items:center; gap:11px; flex-shrink:0;}
@@ -41,15 +42,21 @@ header{
 #pupila{transition:transform .1s ease-out;}
 .brand-text h1{font-size:15.5px;font-weight:800;color:var(--navy-900);line-height:1.15;}
 .brand-text p{font-size:10px;color:var(--text-soft);margin-top:1px;}
-/* menu sempre numa linha só: se não couber, rola de lado em vez de quebrar */
-nav{display:flex; gap:2px; flex:1; min-width:0; justify-content:safe center; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none;}
-nav::-webkit-scrollbar{display:none;}
-.nav-item{
-  display:flex; align-items:center; gap:7px; padding:9px 12px; border-radius:8px; flex-shrink:0;
-  color:var(--text-soft); font-size:13.5px; font-weight:500; cursor:pointer; border:none; background:none;
-  transition:background .15s,color .15s; white-space:nowrap;
+/* Menu: barra lateral à esquerda, abaixo do cabeçalho (no celular vira uma faixa que rola de lado) */
+.layout{display:flex; align-items:flex-start;}
+.sidebar{
+  width:212px; flex-shrink:0; position:sticky; top:calc(var(--header-h) + env(safe-area-inset-top,0px));
+  height:calc(100vh - var(--header-h)); overflow-y:auto; padding:18px 12px;
+  background:#fff; border-right:1px solid var(--border); z-index:10;
 }
-.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.main{flex:1; min-width:0;}
+nav{display:flex; flex-direction:column; gap:2px;}
+.nav-item{
+  display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:8px; flex-shrink:0;
+  color:var(--text-soft); font-size:13.5px; font-weight:500; cursor:pointer; border:none; background:none;
+  transition:background .15s,color .15s; white-space:nowrap; text-align:left;
+}
+.nav-item svg{width:16px;height:16px;flex-shrink:0;}
 .nav-item:hover{background:var(--card-bg); color:var(--text);}
 .nav-item.active{background:var(--accent-soft); color:var(--accent);}
 .avatar{width:32px;height:32px;border-radius:50%;background:var(--navy-900);color:#fff;
@@ -153,6 +160,7 @@ footer.app-footer .placeholder{background:#FFF4E5;color:#9A3E00;padding:1px 5px;
   font-family:var(--font); font-size:13.5px; color:var(--text);
 }
 .filters input{flex:1; min-width:180px;}
+.filters select{max-width:100%;}  /* opção de texto longo não estoura a tela do celular */
 table{width:100%; border-collapse:collapse; font-size:13.5px;}
 thead th{text-align:left; font-size:11.5px; color:var(--text-soft); font-weight:600; padding:0 12px 10px; border-bottom:1px solid var(--border);}
 tbody td{padding:12px; border-bottom:1px solid var(--border);}
@@ -190,6 +198,23 @@ tbody tr:last-child td{border-bottom:none;}
 .placeholder h3{color:var(--text); font-size:15px; margin-bottom:6px;}
 .placeholder p{font-size:13px; max-width:340px; margin:0 auto;}
 
+/* Avaliação do modelo */
+.matriz{width:auto; margin:4px 0 14px; font-size:13.5px;}
+.matriz th, .matriz td{padding:10px 14px; border:1px solid var(--border); text-align:center;}
+.matriz thead th{padding:10px 14px; font-size:12px;}
+.matriz tbody th{font-size:12px; color:var(--text-soft); font-weight:600; text-align:left;}
+.matriz td b{display:block; font-size:18px;}
+.matriz td small{color:var(--text-soft); font-size:11.5px;}
+.matriz td.certo{background:var(--risk-low-bg);}
+.matriz td.errado{background:var(--risk-high-bg);}
+.roc{width:100%; max-width:300px; display:block; margin:0 auto; font-family:var(--font);}
+.roc .eixo{stroke:var(--border);}
+.roc .acaso{stroke:var(--text-soft); stroke-dasharray:4 4;}
+.roc polyline{fill:none; stroke:var(--accent); stroke-width:2.5;}
+.roc circle{fill:var(--accent);}
+.roc text{font-size:10.5px; fill:var(--text-soft);}
+.aviso{background:var(--risk-med-bg); color:#7A5414; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
+
 /* Modal */
 .overlay{position:fixed; inset:0; background:rgba(10,12,25,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
 .overlay.show{display:flex;}
@@ -203,13 +228,15 @@ tbody tr:last-child td{border-bottom:none;}
 .detail-row .k{color:var(--text-soft);}
 .detail-row .v{font-weight:600;}
 
-@media (max-width:1180px){
-  .nav-item svg{display:none;}  /* sem os ícones o menu ainda cabe numa linha ao lado do logo */
-  .nav-item{padding:9px 10px;}
-}
 @media (max-width:900px){
-  .header-inner{flex-wrap:wrap; padding:12px 16px;}
-  nav{order:3; flex-basis:100%; justify-content:flex-start; overflow-x:auto; gap:2px;}
+  .header-inner{padding:12px 16px;}
+  .layout{display:block;}
+  .sidebar{width:auto; height:auto; padding:6px 12px; border-right:none; border-bottom:1px solid var(--border);
+    top:calc(var(--header-h) - 4px + env(safe-area-inset-top,0px));}
+  nav{flex-direction:row; overflow-x:auto; scrollbar-width:none;}
+  nav::-webkit-scrollbar{display:none;}
+  .nav-item{width:auto; padding:9px 10px;}
+  .brand-text p{display:none;}  /* sem o subtítulo, logo e usuário cabem numa linha (o cabeçalho não quebra) */
   .pagehead-inner, .content{padding-left:16px; padding-right:16px;}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
   .two-col{grid-template-columns:1fr;}
@@ -243,42 +270,51 @@ tbody tr:last-child td{border-bottom:none;}
       </svg>
       <div class="brand-text"><h1>Espiada</h1><p>Monitoramento e Predição Acadêmica</p></div>
     </div>
-    <nav>
-      <button class="nav-item" data-section="meu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-        Meu desempenho
-      </button>
-      <button class="nav-item active" data-section="painel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-        Painel
-      </button>
-      <button class="nav-item" data-section="monitoramento">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-6 4 8 3-5 4 3 3-4"/></svg>
-        Monitoramento
-      </button>
-      <button class="nav-item" data-section="predicoes">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-        Predições
-      </button>
-      <button class="nav-item" data-section="turmas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-        Turmas
-      </button>
-      <button class="nav-item" data-section="relatorios">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/></svg>
-        Relatórios
-      </button>
-      <button class="nav-item" data-section="config">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
-        Config.
-      </button>
-    </nav>
     <div class="user">
       <div><div id="userNome"></div><div class="perfil" id="userPerfil"></div></div>
       <button class="btn-sair" id="sairBtn">Sair</button>
     </div>
   </div>
 </header>
+
+<div class="layout">
+<aside class="sidebar">
+  <nav>
+    <button class="nav-item" data-section="meu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      Meu desempenho
+    </button>
+    <button class="nav-item active" data-section="painel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Painel
+    </button>
+    <button class="nav-item" data-section="monitoramento">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-6 4 8 3-5 4 3 3-4"/></svg>
+      Monitoramento
+    </button>
+    <button class="nav-item" data-section="predicoes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+      Predições
+    </button>
+    <button class="nav-item" data-section="avaliacao">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17v-5M11 17V7M16 17v-8M21 17V4"/></svg>
+      Avaliação
+    </button>
+    <button class="nav-item" data-section="turmas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      Turmas
+    </button>
+    <button class="nav-item" data-section="relatorios">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/></svg>
+      Relatórios
+    </button>
+    <button class="nav-item" data-section="config">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      Config.
+    </button>
+  </nav>
+</aside>
+<main class="main">
 
 <div class="pagehead">
   <div class="pagehead-inner">
@@ -382,6 +418,11 @@ tbody tr:last-child td{border-bottom:none;}
     </div>
   </section>
 
+  <!-- AVALIAÇÃO DO MODELO (secretaria): o risco previsto comparado com quem de fato evadiu -->
+  <section class="section" id="sec-avaliacao">
+    <div id="avaliacaoConteudo"><div class="panel"><p class="vazio">Carregando…</p></div></div>
+  </section>
+
   <!-- TURMAS -->
   <section class="section" id="sec-turmas">
     <div class="panel">
@@ -447,6 +488,9 @@ tbody tr:last-child td{border-bottom:none;}
   <p><a href="https://www.stj.jus.br/sites/portalp/Leis-e-normas/lei-geral-de-protecao-de-dados-pessoais-lgpd" target="_blank" rel="noopener">LGPD — Lei nº 13.709/2018</a>.</p>
   <p><a href="sobre.html#sobre">Sobre</a> · <a href="sobre.html#equipe">Equipe</a> · <a href="sobre.html#termos">Termos de Uso</a> · <a href="sobre.html#privacidade">Privacidade (LGPD)</a> · <a href="sobre.html#cookies">Cookies</a> · <a href="sobre.html#contato">Contato</a></p>
 </footer>
+</main>
+</div>
+
 
 <div class="overlay" id="overlay">
   <div class="modal" id="modal"></div>
@@ -456,7 +500,7 @@ tbody tr:last-child td{border-bottom:none;}
 const alunos = [];
 // o que cada perfil enxerga no menu; a API confere de novo e recusa o resto (403)
 const SECOES = {aluno:["meu"], professor:["painel","monitoramento","predicoes","turmas","relatorios"],
-  secretaria:["painel","monitoramento","predicoes","turmas","relatorios","config"]};
+  secretaria:["painel","monitoramento","predicoes","avaliacao","turmas","relatorios","config"]};
 const PERFIL = {aluno:"Aluno", professor:"Professor", secretaria:"Secretaria/coordenação"};
 
 async function api(url, opcoes={}){
@@ -579,12 +623,14 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
       painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
       monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e reprovações"],
       predicoes:["Predições","Classificação de risco gerada a partir dos indicadores monitorados"],
+      avaliacao:["Avaliação do modelo","Quanto o risco previsto acerta, comparado com quem de fato evadiu"],
       turmas:["Turmas e cursos","Organização por curso e turma"],
       relatorios:["Relatórios","Exportação de dados para coordenação"],
       config:["Configurações","Perfis de acesso e regras do sistema"]};
     const t = titles[btn.dataset.section];
     document.getElementById("topbarTitle").textContent = t[0];
     document.getElementById("topbarSub").textContent = t[1];
+    if(btn.dataset.section==="avaliacao") carregarAvaliacao();  // recalcula a cada abertura: as predições podem ter mudado
   });
 });
 
@@ -847,6 +893,79 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
   document.getElementById("analiseLLM").innerHTML = analiseHtml(r);
   document.getElementById("predictResult").classList.add("show");
 });
+
+// ---------- avaliação do modelo (regras explicadas no readme.md, seção "Avaliação do modelo de risco") ----------
+let avaliacao = null;
+const pct = v => v==null ? "—" : (v*100).toFixed(1).replace(".",",")+"%";
+const dec = v => v==null ? "—" : v.toFixed(3).replace(".",",");
+const CORTES = {medio_ou_alto:"Médio ou alto = previu evasão", alto:"Só alto = previu evasão"};
+const METRICAS = [
+  ["acuracia","Acurácia","dos alunos, quantos o modelo classificou certo (evadiu ou não)"],
+  ["precisao","Precisão","de quem o modelo apontou, quantos evadiram de fato"],
+  ["revocacao","Revocação (sensibilidade)","de quem evadiu, quantos o modelo apontou antes"],
+  ["especificidade","Especificidade","de quem ficou, quantos o modelo não apontou"],
+  ["f1","F1","equilíbrio entre precisão e revocação (média harmônica)"]];
+async function carregarAvaliacao(){
+  const el = document.getElementById("avaliacaoConteudo");
+  try{ avaliacao = await api("/api/avaliacao"); renderAvaliacao(); }
+  catch(e){ el.innerHTML = `<div class="panel"><p class="erro-msg">Não foi possível avaliar o modelo: ${esc(e.message)}</p></div>`; }
+}
+function graficoRoc(roc, valorAuc){
+  const L = 220, x = f => 34 + f*L, y = t => 10 + (1-t)*L;
+  const pontos = roc.map(p=>`${x(p.fpr).toFixed(1)},${y(p.tpr).toFixed(1)}`).join(" ");
+  return `<svg class="roc" viewBox="0 0 270 268" role="img" aria-label="Curva ROC das regras, AUC ${dec(valorAuc)}">
+    <line class="eixo" x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}"/><line class="eixo" x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1)}"/>
+    <line class="acaso" x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}"/>
+    <polyline points="${pontos}"/>
+    ${roc.slice(1,-1).map(p=>`<circle cx="${x(p.fpr)}" cy="${y(p.tpr)}" r="3"><title>pontuação ≥ ${p.corte}: acerta ${pct(p.tpr)} de quem evadiu, alarme falso em ${pct(p.fpr)} de quem ficou</title></circle>`).join("")}
+    <text x="${x(.5)}" y="${y(0)+26}" text-anchor="middle">alarme falso (taxa de falso positivo)</text>
+    <text x="12" y="${y(.5)}" text-anchor="middle" transform="rotate(-90 12 ${y(.5)})">acerto (revocação)</text>
+    <text x="${x(.62)}" y="${y(.5)}">acaso (AUC 0,5)</text>
+  </svg>`;
+}
+function renderAvaliacao(){
+  const a = avaliacao, g = a.regras, corte = document.getElementById("avCorte")?.value || "medio_ou_alto", m = g.cortes[corte];
+  const maior = Math.max(...Object.values(g.por_nivel).map(n=>n.taxa||0), .01);
+  const barras = ["alto","medio","baixo"].map(n=>{ const d = g.por_nivel[n]; return `
+    <div class="bar-row"><span class="name">${riskLabel[n]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${(d.taxa||0)/maior*100}%;background:${riskColor[n]}"></div></div>
+      <span class="val" style="width:52px">${pct(d.taxa)}</span></div>
+    <p class="vazio" style="margin:-8px 0 12px 86px">${d.evasoes} evasões em ${d.alunos} alunos</p>`; }).join("");
+  const celula = (v, total, rot, certo) => `<td class="${certo?"certo":"errado"}"><b>${v}</b><small>${rot} · ${pct(v/total)}</small></td>`;
+  const l = a.llm;
+  const comparacao = !l.alunos ? `<p class="vazio">Nenhum aluno tem predição da LLM guardada ainda. Rode o recálculo em lote (aba Config.) com o Ollama ligado para ter o que comparar.</p>` : `
+    ${l.amostra_pequena ? `<p class="aviso">Só ${l.alunos} aluno(s) têm predição da LLM. Com tão pouca gente, a comparação não permite concluir nada: rode o recálculo em lote para avaliar a LLM em todos.</p>` : ""}
+    <div class="table-wrap"><table class="ficha"><thead><tr><th>Mesmos ${l.alunos} alunos</th><th>AUC</th><th>Precisão</th><th>Revocação</th><th>F1</th></tr></thead><tbody>
+      ${[["Regras",l.regras],["Regras + LLM",l.llm]].map(([nome,b])=>`<tr><td>${nome}</td><td>${dec(b.auc)}</td><td>${pct(b.cortes[corte].precisao)}</td><td>${pct(b.cortes[corte].revocacao)}</td><td>${dec(b.cortes[corte].f1)}</td></tr>`).join("")}
+    </tbody></table></div>`;
+  document.getElementById("avaliacaoConteudo").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">Alunos avaliados</div><div class="num">${a.alunos}</div></div>
+      <div class="stat-card high"><div class="lbl">Evasões reais</div><div class="num">${a.evasoes}</div><div class="vazio">${pct(a.taxa_evasao)} dos alunos</div></div>
+      <div class="stat-card"><div class="lbl">AUC das regras</div><div class="num">${dec(g.auc)}</div><div class="vazio">0,5 = sorteio · 1 = perfeito</div></div>
+      <div class="stat-card"><div class="lbl">F1 (${corte==="alto"?"só alto":"médio ou alto"})</div><div class="num">${dec(m.f1)}</div></div>
+    </div>
+    <div class="two-col">
+      <div class="panel"><h3>Evasão real em cada nível de risco</h3>${barras}
+        <p class="note">Se o modelo ordena bem, a taxa sobe de baixo para alto. A média geral é ${pct(a.taxa_evasao)}.</p></div>
+      <div class="panel"><h3>Curva ROC das regras (AUC ${dec(g.auc)})</h3>${graficoRoc(g.roc, g.auc)}
+        <p class="note">Cada ponto é um corte da pontuação das regras (0 a 7). Quanto mais a curva sobe à esquerda da diagonal, melhor. Pelo nível final (baixo, médio, alto) a AUC é ${dec(g.auc_nivel)}.</p></div>
+    </div>
+    <div class="panel">
+      <h3>Matriz de confusão das regras</h3>
+      <div class="filters"><select id="avCorte" aria-label="Corte">${Object.entries(CORTES).map(([k,t])=>`<option value="${k}" ${k===corte?"selected":""}>${t}</option>`).join("")}</select></div>
+      <div class="table-wrap"><table class="matriz">
+        <thead><tr><th></th><th>Evadiu</th><th>Não evadiu</th></tr></thead>
+        <tbody>
+          <tr><th>Previu evasão</th>${celula(m.vp,a.alunos,"verdadeiro positivo",true)}${celula(m.fp,a.alunos,"falso positivo (alarme falso)",false)}</tr>
+          <tr><th>Não previu</th>${celula(m.fn,a.alunos,"falso negativo (escapou)",false)}${celula(m.vn,a.alunos,"verdadeiro negativo",true)}</tr>
+        </tbody></table></div>
+      ${METRICAS.map(([k,nome,txt])=>`<div class="detail-row"><span><span class="v">${nome}</span> <span class="vazio">— ${txt}</span></span><span class="v">${k==="f1"?dec(m[k]):pct(m[k])}</span></div>`).join("")}
+      <p class="note">Atenção à acurácia: como só ${pct(a.taxa_evasao)} evadem, quem "chuta" que ninguém evade já acerta ${pct(a.acuracia_chute)}, sem prever nada. Por isso as medidas que importam aqui são revocação, precisão, F1 e AUC.</p>
+    </div>
+    <div class="panel"><h3>LLM x regras nos mesmos alunos</h3>${comparacao}</div>`;
+  document.getElementById("avCorte").addEventListener("change", renderAvaliacao);
+}
 
 Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   perfil = eu.perfil;

@@ -6,7 +6,7 @@ import click
 from flask import Blueprint, abort, jsonify, request
 
 from controllers.comum import exige
-from models import llm, predicao
+from models import avaliacao, llm, predicao
 from models.banco import ErroModelo, criar_banco
 
 bp = Blueprint("predicoes", __name__, cli_group=None)  # cli_group=None: o comando fica "flask recalcular-predicoes"
@@ -45,6 +45,14 @@ def recalcular():
 def andamento_do_recalculo():
     exige("secretaria")
     return jsonify(dict(andamento))
+
+
+@bp.get("/api/avaliacao")
+def avaliacao_do_modelo():
+    """Quanto o risco previsto acerta, comparado com quem de fato evadiu. Visão agregada da instituição: só a
+    secretaria (RN09)."""
+    exige("secretaria")
+    return jsonify(avaliacao.avaliar())
 
 
 @bp.cli.command("recalcular-predicoes")
