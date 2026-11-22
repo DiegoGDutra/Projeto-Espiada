@@ -14,7 +14,7 @@ from models.banco import ErroModelo
 URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 MODELO = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
 TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT", "120"))  # a 1ª chamada carrega o modelo na memória e demora
-PROMPT_VERSAO = "1"  # mude ao editar o PROMPT: entra no hash, e as predições antigas voltam a ser recalculadas
+PROMPT_VERSAO = "2"  # mude ao editar o PROMPT: entra no hash, e as predições antigas voltam a ser recalculadas
 NIVEIS = ("baixo", "medio", "alto")
 MANTER_CARREGADO = "30m"  # o Ollama descarrega o modelo após 5 min parado; assim cliques seguidos não recarregam
 
@@ -42,6 +42,7 @@ Regras:
 - nivel: "baixo", "medio" ou "alto" (medio sem acento).
 - Considere os indicadores, a tendência entre os semestres e o tom dos comentários. A pré-análise das regras
   é um ponto de partida: discorde dela só com motivo claro nos dados.
+- Se existir "modelo_estatistico", o nível já foi definido por ele: repita esse nivel e explique-o no comentário.
 - comentario: em português, no máximo 40 palavras, citando os números que justificam o nível.
 Responda apenas com o JSON pedido."""
 

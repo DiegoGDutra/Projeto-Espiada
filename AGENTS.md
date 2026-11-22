@@ -14,6 +14,7 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 - Dependências: `.venv\Scripts\python -m pip install -r requirements.txt`
 - Importar dados (só com o banco vazio): `.venv\Scripts\python scripts/importar.py`
 - Servidor: `.venv\Scripts\python app/Espiada.py` → http://127.0.0.1:5000
+- Treinar o modelo de risco (depois de importar): `flask --app app/Espiada.py treinar-modelo`
 - Recálculo em lote: `flask --app app/Espiada.py recalcular-predicoes` (`--forcar` reanalisa todos)
 - Zerar o banco (apaga os dados): `docker compose down -v` e depois `up -d` + importar
 
@@ -23,17 +24,18 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 .venv\Scripts\python testes/teste_banco.py   # < 1 s
 .venv\Scripts\python testes/teste_api.py     # ~1,5 min
 .venv\Scripts\python testes/teste_llm.py     # ~2 min
+.venv\Scripts\python testes/teste_modelo.py  # ~20 s
 ```
 
 - Precisam do PostgreSQL no ar; não precisam do Ollama (a LLM é simulada).
-- Cada teste usa um esquema próprio (`teste_banco`, `teste_api`, `teste_llm`), recriado a cada execução. Nunca rode testes no esquema `public`.
-- Os testes não usam framework: são scripts com `assert`. Rode os três depois de mexer em models, controllers ou `schema.sql`.
+- Cada teste usa um esquema próprio (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`), recriado a cada execução. Nunca rode testes no esquema `public`.
+- Os testes não usam framework: são scripts com `assert`. Rode os quatro depois de mexer em models, controllers ou `schema.sql`.
 
 ## Estrutura
 
 - `app/` — o sistema (MVC): `Espiada.py` (entrada), `schema.sql`, `models/` (SQL e regras), `controllers/` (rotas), `views/` (HTML), `static/`
 - `scripts/` — `importar.py` (CSV → banco + logins) e `ampliar_dados.py` (gera o dataset de 5000 alunos, semente fixa)
-- `testes/` — os três testes
+- `testes/` — os quatro testes
 - `dados/` — CSVs do dataset e `LEIA-ME.md` com o dicionário
 
 `scripts/` e `testes/` acham os models colocando `app/` no `sys.path` no topo do arquivo; mantenha esse padrão.
@@ -42,9 +44,11 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 
 - Nota e frequência só entram pelo importador. Nenhuma rota ou tela escreve nesses campos.
 - Cada perfil vê só o que pode: aluno só ele mesmo, professor só alunos das próprias turmas, secretaria todos (`filtro_visiveis` em `app/models/alunos.py`).
-- `indicadores_risco` e `desfechos_alunos` nunca são entrada da predição (vazamento: são a resposta pronta / o gabarito). O gabarito só é lido em `app/models/avaliacao.py`, para medir o acerto.
+- `indicadores_risco` e `desfechos_alunos` nunca são variáveis de entrada da predição (vazamento: são a resposta pronta / o gabarito). O gabarito só é lido em `gabarito()` de `app/models/avaliacao.py`, para medir o acerto e servir de resposta no treino (`app/models/treino.py`).
+- Métrica do modelo treinado vem só dos alunos separados para o teste. Uma versão só entra em uso se o ganho de AUC for positivo em todo o IC 95%.
+- O aluno vê o próprio nível de risco, mas não a porcentagem (`_com_risco` em `app/controllers/alunos.py`).
 - A LLM não recebe nome, matrícula, endereço nem outro identificador; o contexto é montado em `entrada_llm()`.
-- Regras duras valem acima da LLM: frequência < 75% força "alto"; menos de 8 registros limita a "médio"; a LLM só se afasta 1 nível das regras.
+- Regras duras valem acima do modelo e da LLM: frequência < 75% força "alto"; menos de 8 registros limita a "médio". Com modelo treinado, a LLM só comenta; sem ele, só se afasta 1 nível das regras.
 - Predições nunca são sobrescritas: cada cálculo é uma linha nova em `predicao_ia`.
 - Mudou o `PROMPT` em `app/models/llm.py`? Incremente `PROMPT_VERSAO`.
 

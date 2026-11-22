@@ -103,7 +103,7 @@ assert h != predicao.hash_entrada(contexto | {"periodo_atual": 99})
 modelo, versao = llm.MODELO, llm.PROMPT_VERSAO
 llm.MODELO = "outro:7b"
 assert h != predicao.hash_entrada(contexto)
-llm.MODELO, llm.PROMPT_VERSAO = modelo, "2"
+llm.MODELO, llm.PROMPT_VERSAO = modelo, versao + "-nova"
 assert h != predicao.hash_entrada(contexto)
 llm.PROMPT_VERSAO = versao
 
@@ -159,7 +159,7 @@ assert len(predicao.historico("AES0002")) == 2  # a linha das regras não vira "
 # o que as telas mostram: última predição guardada; sem nenhuma, as regras
 sem_predicao = alunos.buscar("AES0003", SECRETARIA)
 assert predicao.risco_atual(sem_predicao, predicao.ultima("AES0003")) == \
-    {"risco": predicao.calcular_risco(sem_predicao)["risco"], "risco_origem": "regras"}
+    {"risco": predicao.calcular_risco(sem_predicao)["risco"], "risco_origem": "regras", "probabilidade": None}
 assert predicao.risco_atual(aluno, predicao.ultima("AES0001"))["risco_origem"] == "llm"
 assert set(predicao.ultimas_por_aluno()) == {"AES0001", "AES0002"}
 

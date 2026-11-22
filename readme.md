@@ -12,35 +12,37 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 ## O que o sistema faz
 
 - **Importação dos dados acadêmicos:** notas, frequência, endereço e perfil socioeconômico entram no banco só pelo importador (`scripts/importar.py`), a partir de um dataset sintético com 5000 alunos e 450 docentes de Engenharia de Software (2023-1 a 2026-2). Os 120 alunos originais foram ampliados por `scripts/ampliar_dados.py`, na proporção de 18 docentes a cada 200 alunos. Nenhum registro é de uma pessoa real, e nenhuma tela permite editar nota ou frequência.
-- **Painel geral:** cards com o total de alunos e quantos estão em risco alto, médio e baixo, a lista dos alunos em risco crítico e quatro tipos de gráfico: barras (% de alto risco por turma), barras empilhadas (alto, médio e baixo por turma), rosca (distribuição geral) e radar (alunos com risco por turma). O filtro por turma vale para o painel inteiro. Os gráficos são desenhados à mão em CSS e SVG, sem biblioteca.
-- **Monitoramento:** tabela com todos os alunos visíveis, com turma, frequência, nota, reprovações e risco. Tem busca por nome e filtros por turma e por nível de risco. Clicar no aluno abre a ficha dele.
+- **Painel geral:** cards com o total de alunos e quantos estão em risco alto, médio e baixo, a lista dos alunos em risco crítico e quatro tipos de gráfico: barras (% de alto risco por período), barras empilhadas (alto, médio e baixo por período), rosca (distribuição geral) e radar (alunos com risco por período). O filtro por período vale para o painel inteiro. Os gráficos são desenhados à mão em CSS e SVG, sem biblioteca.
+- **Monitoramento:** tabela com todos os alunos visíveis, com período, frequência, nota, reprovações e risco. Tem busca por nome e filtros por período e por nível de risco. Clicar no aluno abre a ficha dele.
 - **Ficha do aluno:** notas e frequência de cada disciplina, separadas por semestre, e o histórico de predições de risco.
-- **Predição de risco:** o professor ou a secretaria escolhe um aluno e gera a classificação. O sistema soma pontos por regras, pede a opinião de uma LLM local e mostra o nível final, os fatores que pesaram, o comentário da LLM e os ajustes feitos pelas regras duras. A seção [Como o risco é calculado](#como-o-risco-é-calculado) explica cada passo.
+- **Predição de risco:** o professor ou a secretaria escolhe um aluno e gera a classificação. O modelo treinado calcula a chance de evasão, que aparece junto do nível (por exemplo, "Risco alto — 62%"), as regras duras têm a palavra final e uma LLM local escreve o comentário. A tela também mostra os fatores e os ajustes das regras duras. O aluno vê o próprio nível, mas não a porcentagem. A seção [Como o risco é calculado](#como-o-risco-é-calculado) explica cada passo.
 - **Recálculo em lote:** a secretaria pode recalcular a predição de todos os alunos de uma vez, em segundo plano, pelo botão Recalcular da aba Config., que mostra o andamento. Quem não mudou desde a última análise é pulado.
 - **Histórico que não se perde:** cada predição vira uma linha nova no banco. Nada é sobrescrito, então dá para ver como o risco de um aluno mudou ao longo do tempo.
 - **Perfis de acesso:** o aluno vê só o próprio desempenho; o professor vê só os alunos que passaram pelas turmas dele; a secretaria vê todos e cadastra usuários. Qualquer tentativa fora disso é negada e registrada no log.
 - **Feedback do aluno:** na tela Meu desempenho, o aluno avalia o curso ou a instituição (nota de 1 a 5 e comentário opcional) e vê a lista dos feedbacks que já enviou. O professor e a secretaria veem os feedbacks na ficha do aluno. Avaliação 1 ou 2 conta como reclamação no cálculo de risco.
-- **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC e a comparação entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
+- **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC, intervalos de confiança de 95% e a comparação entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
 - **Turmas:** a aba Turmas lista as turmas com disciplina, docente, semestre, turno, modalidade e vagas, com busca e filtro por semestre.
 - **Cadastro de usuários:** a secretaria cadastra aluno, professor ou secretaria pela aba Config.
 
 ## Como o risco é calculado
 
-O cálculo tem três camadas: uma pontuação por regras, uma opinião da LLM e as regras duras, que têm a palavra final. A pontuação e os fatores mostram **por que** o sistema apontou risco; a LLM é uma análise complementar.
+**Com modelo treinado** (o caso normal), o nível vem da chance de evasão calculada por ele: abaixo de 15% é baixo, de 15% a 30% é médio e a partir de 30% é alto. As regras duras têm a palavra final e a LLM só escreve o comentário. A seção [Treinamento do modelo de risco](#treinamento-do-modelo-de-risco) explica como ele aprende.
+
+**Sem modelo treinado**, o cálculo tem três camadas: uma pontuação por regras, uma opinião da LLM e as regras duras. A pontuação e os fatores mostram **por que** o sistema apontou risco; a LLM é uma análise complementar.
 
 **Pontuação por regras.** Cada sinal de alerta soma pontos: frequência média abaixo de 75% (+2), nota média abaixo de 60 (+2), reprovação no histórico (+1), reclamação no feedback, ou seja, avaliação 1 ou 2 (+1), e morar a mais de 30 km do campus (+1). Com 4 pontos ou mais o risco é alto, com 2 ou 3 é médio, e abaixo disso é baixo. Um indicador sem dado, como o de um aluno ainda sem notas, não soma ponto. Os pesos estão na lista `REGRAS` de `app/models/predicao.py`.
 
 **Opinião da LLM.** A LLM recebe os indicadores do aluno, o resumo de cada semestre (nota média, frequência média e reprovações), os três últimos comentários dele e a pré-análise das regras. Com isso ela enxerga o que as médias escondem: a tendência entre os semestres e o tom dos comentários. Ela devolve um nível e um comentário curto, num JSON com formato obrigatório. Não é um chat: o prompt é fixo e ninguém digita nada para ela. O comentário do aluno entra como dado, e o prompt manda ignorar qualquer ordem escrita nele.
 
-**Limite da LLM.** A LLM pode mudar o nível das regras em no máximo um degrau (`LLM_PASSO_MAXIMO`). Se as regras dizem "baixo", ela pode chegar no máximo a "médio".
+**Limite da LLM.** Sem modelo treinado, a LLM pode mudar o nível das regras em no máximo um degrau (`LLM_PASSO_MAXIMO`). Se as regras dizem "baixo", ela pode chegar no máximo a "médio".
 
-**Regras duras.** Valem por cima da pontuação e da LLM:
+**Regras duras.** Valem por cima do modelo, da pontuação e da LLM. Por isso, um aluno pode aparecer como "Risco alto — 22%": a porcentagem continua sendo a estimativa do modelo, e o nível subiu por causa da regra:
 
 - frequência abaixo de 75% deixa o risco em **alto**;
 - menos de 8 registros acadêmicos (`HISTORICO_MINIMO`) limitam o risco a **médio**, porque ainda não há dados suficientes para cravar "alto";
 - quando as duas valem ao mesmo tempo, o histórico curto vence e o risco fica **médio**.
 
-**Sem a LLM.** Se o Ollama estiver fora do ar ou a resposta vier fora do formato, a predição sai só com as regras, fica marcada com `origem = regras` e a tela mostra o aviso com o motivo. O sistema nunca deixa de funcionar por causa da LLM.
+**Sem a LLM.** Se o Ollama estiver fora do ar ou a resposta vier fora do formato, a predição sai sem comentário, usando o modelo treinado (ou só as regras, se não houver modelo), fica marcada com `origem = regras` e a tela mostra o aviso com o motivo. O sistema nunca deixa de funcionar por causa da LLM.
 
 ### A LLM
 
@@ -56,7 +58,7 @@ A temperatura é 0 e a semente é fixa, então a mesma entrada dá a mesma respo
 
 ## Avaliação do modelo de risco
 
-A aba **Avaliação** (só a secretaria; rota `GET /api/avaliacao`) compara o risco previsto com o que de fato aconteceu. A tabela `desfechos_alunos` é o gabarito: diz quem evadiu na janela de 12 meses (640 dos 5000 alunos, 12,8%). O código fica em `app/models/avaliacao.py`, e o gabarito só é lido ali, para medir; ele nunca entra no cálculo do risco.
+A aba **Avaliação** (só a secretaria; rota `GET /api/avaliacao`) compara o risco previsto com o que de fato aconteceu. A tabela `desfechos_alunos` é o gabarito: diz quem evadiu na janela de 12 meses (640 dos 5000 alunos, 12,8%). O código fica em `app/models/avaliacao.py`, e o gabarito só é lido ali, para medir o acerto e servir de resposta no treinamento; ele nunca é variável de entrada do cálculo do risco.
 
 **As regras da avaliação**
 
@@ -74,9 +76,10 @@ A aba **Avaliação** (só a secretaria; rota `GET /api/avaliacao`) compara o ri
 
    Quando a conta divide por zero (por exemplo, precisão com ninguém apontado), o resultado aparece como "—".
 4. **A acurácia engana aqui.** Como só 12,8% evadem, quem "chuta" que ninguém evade já acerta 87,2% sem prever nada. Por isso as medidas que importam são revocação, precisão, F1 e AUC.
-5. **AUC e curva ROC.** A AUC é a chance de um aluno que evadiu, sorteado, ter pontuação de risco maior que um aluno que ficou (empate conta meio). 0,5 é o mesmo que sortear; 1 separa todo mundo. Ela é calculada pela pontuação das regras (0 a 7) e também pelo nível final (baixo, médio, alto). Na curva ROC, cada ponto é um corte da pontuação: quanto mais a curva sobe à esquerda da diagonal, melhor.
+5. **AUC e curva ROC.** A AUC é a chance de um aluno que evadiu, sorteado, ter pontuação de risco maior que um aluno que ficou (empate conta meio). 0,5 é o mesmo que sortear; 1 separa todo mundo. O cartão da tela mostra a AUC do **nível final** (baixo, médio, alto), que é o que o sistema entrega. A AUC da pontuação (0 a 7, antes das regras duras) acompanha a curva ROC, em que cada ponto é um corte da pontuação: quanto mais a curva sobe à esquerda da diagonal, melhor.
 6. **Evasão real por nível.** Mostra a taxa de evasão dos alunos de cada nível. Se o modelo ordena bem, ela sobe de baixo para alto.
-7. **LLM x regras.** Entram só os alunos cuja última predição guardada veio da LLM, e as regras são medidas **nesses mesmos alunos**, para a comparação ser justa. Com menos de 30 alunos, a tela avisa que não dá para concluir nada.
+7. **LLM x regras.** Entram só os alunos cuja última predição guardada veio da LLM, e as regras são medidas **nesses mesmos alunos**, para a comparação ser justa. Predições feitas com o modelo treinado não entram, porque nelas a LLM só comenta. Com menos de 10 alunos que evadiram ou 10 que ficaram (`EVENTOS_MINIMOS`), a tela avisa que não dá para concluir nada. Se só parte dos alunos tiver predição da LLM, a tela avisa que o resultado vale apenas para esse grupo, porque ele pode não ser uma amostra aleatória.
+8. **Intervalo de confiança de 95% (IC 95%).** Mostra a faixa de valores plausíveis para cada medida, dada a quantidade de alunos. As proporções usam o método de **Wilson** e a AUC usa o de **DeLong**, que trata empates. O F1 fica sem intervalo. O IC cobre só a incerteza da amostra: como os dados são sintéticos e o desfecho foi gerado a partir de indicadores parecidos com os das regras, ele não mostra se o modelo funcionaria com alunos reais.
 
 **Resultado atual das regras (5000 alunos)**
 
@@ -91,7 +94,33 @@ A aba **Avaliação** (só a secretaria; rota `GET /api/avaliacao`) compara o ri
 | Médio ou alto | 25,0% | 65,9% | 0,362 |
 | Só alto | 40,0% | 30,5% | 0,346 |
 
-A AUC é 0,745 pela pontuação e 0,707 pelo nível. As regras ordenam bem (no nível alto a evasão é 6 vezes a do baixo), mas deixam escapar 218 evasões classificadas como baixo risco (34% delas).
+A AUC do nível final é 0,707 (IC 95%: 0,686 a 0,728) e a da pontuação é 0,745 (IC 95%: 0,724 a 0,765). As regras ordenam bem (no nível alto a evasão é 6 vezes a do baixo), mas deixam escapar 218 evasões classificadas como baixo risco (34% delas).
+
+## Treinamento do modelo de risco
+
+Treinar é fazer o computador descobrir os pesos do cálculo olhando alunos cujo resultado já é conhecido. O modelo é uma **regressão logística**, escrita sem biblioteca nova em `app/models/treino.py`. Para treinar, com o banco no ar:
+
+```
+flask --app app/Espiada.py treinar-modelo
+```
+
+1. **Variáveis.** Nota e frequência médias, nota do semestre atual, taxa e quantidade de reprovações, período e tendência (inclinação de nota e frequência por semestre, queda de nota e mudança no último semestre). Não entram nome, matrícula, gênero, renda, endereço, `indicadores_risco` nem o próprio gabarito.
+2. **Divisão.** 80% dos alunos treinam e 20% ficam guardados para o teste, com a mesma proporção de evasão nos dois grupos.
+3. **Ajuste.** O modelo aprende os pesos nos 4000 alunos de treino. A validação cruzada de 5 dobras confere se o resultado é estável.
+4. **Teste.** O modelo prevê os 1000 alunos que nunca viu, e a previsão é comparada com o que aconteceu.
+5. **Aprovação.** A nova versão só entra em uso se o ganho de AUC sobre a referência (as regras ou o modelo atual) for positivo em todo o intervalo de confiança de 95%. Toda tentativa fica guardada na tabela `modelo_risco`.
+
+**Resultado da versão 1 (1000 alunos de teste, 128 evasões)**
+
+| Medida | Regras | Modelo |
+|---|---|---|
+| AUC da ordenação | 0,747 | 0,789 (IC 95%: 0,745 a 0,834) |
+| AUC do nível final | 0,709 | 0,754 |
+| Precisão (médio ou alto) | 24,5% | 33,0% |
+| Revocação (médio ou alto) | 65,6% | 68,0% |
+| Revocação (só alto) | 34,4% | 49,2% |
+
+O ganho de AUC sobre as regras é de 0,042 (IC 95%: 0,007 a 0,079). A porcentagem é calibrada: no grupo de maior risco do teste, o modelo previu 38,0% de evasão e 37,0% evadiram. Nos 5000 alunos, a maior chance estimada é 74%, e a média é de 42% no nível alto, 21% no médio e 6% no baixo.
 
 ## Tecnologias
 
@@ -128,13 +157,19 @@ Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de t
    python scripts/importar.py
    ```
 
-6. (Opcional, para a predição com LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo uma vez:
+   Depois, treine o modelo de risco (sem ele, o sistema usa só as regras e não mostra a porcentagem):
+
+   ```
+   flask --app app/Espiada.py treinar-modelo
+   ```
+
+6. (Opcional, para o comentário da LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo uma vez:
 
    ```
    ollama pull qwen3:4b
    ```
 
-   O Ollama precisa estar aberto quando você gerar uma predição. Sem ele, a predição sai só com as regras.
+   O Ollama precisa estar aberto quando você gerar uma predição. Sem ele, a predição sai sem o comentário.
 
 7. Inicie o servidor:
 
@@ -150,7 +185,7 @@ Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de t
    http://127.0.0.1:5000
    ```
 
-O banco é um PostgreSQL, no endereço da variável `DATABASE_URL`; sem ela, o sistema usa `postgresql://espiada:espiada@127.0.0.1:5432/espiada`, o do `docker-compose.yml`. As tabelas são criadas automaticamente quando o servidor sobe. Para recriar o banco do zero, rode `docker compose down -v`, `docker compose up -d` e o importador de novo. Para conferir o sistema, rode `python testes/teste_banco.py`, `python testes/teste_api.py` e `python testes/teste_llm.py`: eles precisam do PostgreSQL no ar, mas não do Ollama, e usam esquemas próprios (`teste_banco`, `teste_api`, `teste_llm`) recriados a cada execução, sem mexer nos dados de verdade.
+O banco é um PostgreSQL, no endereço da variável `DATABASE_URL`; sem ela, o sistema usa `postgresql://espiada:espiada@127.0.0.1:5432/espiada`, o do `docker-compose.yml`. As tabelas são criadas automaticamente quando o servidor sobe. Para recriar o banco do zero, rode `docker compose down -v`, `docker compose up -d` e o importador de novo. Para conferir o sistema, rode `python testes/teste_banco.py`, `python testes/teste_api.py`, `python testes/teste_llm.py` e `python testes/teste_modelo.py`: eles precisam do PostgreSQL no ar, mas não do Ollama, e usam esquemas próprios (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`) recriados a cada execução, sem mexer nos dados de verdade.
 
 ## Acesso ao sistema
 
@@ -193,7 +228,8 @@ Projeto-Espiada/
 ├── testes/
 │   ├── teste_banco.py               # testes das regras do banco
 │   ├── teste_api.py                 # testes das rotas e permissões
-│   └── teste_llm.py                 # testes da LLM com um Ollama simulado
+│   ├── teste_llm.py                 # testes da LLM com um Ollama simulado
+│   └── teste_modelo.py              # testes do treinamento e da porcentagem de risco
 └── app/                             # o sistema, em MVC
     ├── Espiada.py                   # ponto de entrada: cria o app, registra os controllers, trata erros
     ├── schema.sql                   # tabelas e regras do banco
@@ -203,8 +239,10 @@ Projeto-Espiada/
     │   ├── academico.py             # cursos, disciplinas, docentes e turmas
     │   ├── alunos.py                # resumo com indicadores, ficha e quem pode ver quem
     │   ├── predicao.py              # regras, regras duras, decisão final, recálculo e histórico
+    │   ├── modelo_risco.py          # variáveis do aluno e chance de evasão pelo modelo treinado
+    │   ├── treino.py                # treina, testa e aprova o modelo de risco
     │   ├── llm.py                   # cliente do Ollama: prompt fixo e resposta validada
-    │   ├── avaliacao.py             # compara o risco previsto com o gabarito (matriz de confusão, F1, AUC)
+    │   ├── avaliacao.py             # compara o risco previsto com o gabarito (matriz de confusão, F1, AUC, IC 95%)
     │   └── feedback.py              # comentários do aluno
     ├── controllers/                 # C: rotas HTTP
     │   ├── comum.py                 # leitura de JSON e checagem de perfil
@@ -212,7 +250,7 @@ Projeto-Espiada/
     │   ├── paginas.py               # entrega as telas
     │   ├── academico.py             # cursos, disciplinas, docentes e turmas
     │   ├── alunos.py                # lista, ficha, feedback e predição
-    │   └── predicoes.py             # recálculo em lote e comando recalcular-predicoes
+    │   └── predicoes.py             # recálculo em lote e comandos recalcular-predicoes e treinar-modelo
     ├── views/                       # V: telas
     │   ├── login.html               # login
     │   ├── interface.html           # painel, monitoramento, predições e meu desempenho
@@ -226,14 +264,14 @@ Uma requisição sempre faz o mesmo caminho: a tela chama a API, o controller co
 
 ### Visão geral
 
-Os dados acadêmicos vêm do dataset sintético, importado por `scripts/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no PostgreSQL, calcula o risco de cada aluno, pede para a LLM local avaliar o contexto e mostra o resultado no painel conforme o perfil de quem entrou. O aviso à coordenação por WhatsApp ou Telegram ainda é planejado.
+Os dados acadêmicos vêm do dataset sintético, importado por `scripts/importar.py` (ninguém edita nota ou frequência à mão). O servidor guarda tudo no PostgreSQL, calcula a chance de evasão e o nível de risco de cada aluno, pede para a LLM local explicar o resultado e mostra o resultado no painel conforme o perfil de quem entrou. O aviso à coordenação por WhatsApp ou Telegram ainda é planejado.
 
 ```mermaid
 flowchart LR
     AVA["Dataset sintético (dados/)<br/>notas, frequência, perfil"] -->|importar.py| DB
     subgraph Servidor["Servidor Flask (app/Espiada.py)"]
         API["API /api/..."]
-        CALC["Cálculo de risco<br/>regras + pesos"]
+        CALC["Cálculo de risco<br/>modelo treinado + regras duras"]
         API --> CALC
     end
     API <--> DB[("PostgreSQL<br/>docker-compose.yml")]
@@ -266,12 +304,12 @@ Roda quando alguém clica em **Gerar predição** (um aluno) e no **recálculo e
 ```mermaid
 flowchart TD
     N["Dados novos, recálculo em lote<br/>ou botão Gerar predição"] --> I["Calcula indicadores<br/>frequência, nota, reprovações"]
-    I --> R["Aplica as regras de risco<br/>(pontuação por regras)"]
-    R --> L["LLM local avalia o contexto do aluno<br/>notas e faltas por semestre, feedback"]
-    L -->|Ollama fora ou resposta inválida| R2["Vale o nível das regras<br/>origem = regras"]
-    L --> D1["A LLM só se afasta 1 nível das regras;<br/>as regras duras têm a palavra final"]
-    R2 --> S
-    D1 --> S["Salva predição no histórico<br/>baixo / médio / alto"]
+    I --> R["Modelo treinado calcula a chance de evasão<br/>(sem modelo: pontuação por regras)"]
+    R --> H["Regras duras têm a palavra final"]
+    H --> L["LLM local escreve o comentário<br/>(sem modelo: pode mover 1 nível)"]
+    L -->|Ollama fora ou resposta inválida| R2["Predição sai sem comentário<br/>origem = regras"]
+    L --> S
+    R2 --> S["Salva predição no histórico<br/>nível e chance de evasão"]
     S --> Q{"Alto risco e<br/>dados suficientes?"}
     Q -->|não| F["Fim"]
     Q -->|sim| D{"Já notificou esse aluno<br/>nas últimas 24h?"}
@@ -322,7 +360,13 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 ## Limitações conhecidas
 
-**A LLM ainda não foi comparada em escala.** A aba Avaliação já mede regras e LLM lado a lado, mas só os alunos que têm predição da LLM guardada entram na comparação, e hoje são poucos. Falta rodar o recálculo em lote com o Ollama nos 5000 alunos. Nas regras atuais, 218 das 640 evasões do dataset (34%) estão em alunos classificados como risco baixo (no dataset original de 120 alunos eram 9 das 20), e é aí que a LLM pode ajudar.
+**A avaliação não prova acerto com alunos reais.** O desfecho do dataset foi sorteado a partir de uma fórmula que usa nota, frequência, reprovações e distância, quase as mesmas variáveis das regras. A AUC mede, portanto, o quanto as regras se aproximam do gerador dos dados (o score do próprio gerador chega a 0,796). Validar o modelo de verdade exige dados reais.
+
+**A tendência ainda não mostrou ganho.** O modelo calcula a tendência de notas e frequência, mas, em validação cruzada, ela não mudou a AUC (diferença de 0,000; IC 95%: -0,003 a 0,003). O dataset tem um único desfecho por aluno, e todas as evasões são de 2027. Medir a tendência de verdade exige saber quem evadiu em cada semestre, com dados reais.
+
+**Regras e cortes.** As regras seguem como reserva e explicação dos fatores, com pesos definidos à mão. Nelas, morar a mais de 30 km não tem efeito significativo (razão de chances de 1,08; IC 95%: 0,90 a 1,30). Os cortes do modelo (15% e 30%) foram fixados antes do teste e devem ser confirmados com a coordenação, conforme a quantidade de alunos que ela consegue atender.
+
+**A LLM ainda não foi comparada em escala.** Com o modelo treinado em uso, a LLM só escreve o comentário. A comparação da aba Avaliação considera apenas predições feitas sem modelo, e hoje são poucas, então ainda não se sabe se a LLM melhoraria o acerto.
 
 **Dados da LLM sem tratamento de LGPD.** A LLM foi usada só em testes locais com o `qwen3:4b`. O contexto enviado não leva nome, matrícula nem endereço, mas não passou por um tratamento de dados de acordo com a lei.
 
@@ -336,13 +380,14 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 ## Próximos passos
 
-- Rodar o recálculo em lote com o Ollama nos 5000 alunos e usar a aba Avaliação para ver se a LLM melhora o acerto das regras; ajustar o prompt com esse resultado.
-- Treinar e integrar um modelo preditivo supervisionado, que gere a previsão de evasão a partir da tendência dos dados de cada aluno ao longo dos semestres, usando `desfechos_alunos` (quem de fato evadiu) como rótulo do treino.
+- Validar o modelo treinado com dados reais e desfecho por semestre, para medir o efeito da tendência.
+- Confirmar com a coordenação os cortes de 15% e 30% do nível de risco.
+- Comparar com o Ollama nos 5000 alunos se a LLM melhora o acerto do modelo; ajustar o prompt com esse resultado.
 - Tratar os dados enviados à LLM de acordo com a LGPD.
 - Deixar os pesos das regras configuráveis, com rota e tela.
 - Avisar a coordenação sobre alunos em alto risco por WhatsApp ou Telegram.
 - Exportar relatórios em PDF e CSV, por aluno, turma e curso.
-- Mais estatística no sistema: medidas descritivas (média, mediana, desvio padrão, quartis), histogramas e boxplots, taxas de aprovação por disciplina, fatores ligados à evasão e a avaliação do modelo de risco (matriz de confusão, F1, ROC/AUC). O detalhe está na seção Estatística do `roadmap.md`.
+- Mais estatística no sistema: medidas descritivas (média, mediana, desvio padrão, quartis), histogramas e boxplots, taxas de aprovação por disciplina, evolução por semestre, fatores ligados à evasão e comparação entre grupos. O detalhe está na seção Estatística do `roadmap.md`.
 - Mostrar os alunos e o risco de cada turma na aba Turmas, com o professor vendo só as próprias turmas.
 - Permitir a alteração manual de uma predição, sempre com justificativa.
 - Recalcular automaticamente quando chegarem dados novos.

@@ -133,6 +133,10 @@ assert avaliacao.metricas([False, False], [True, False])["precisao"] is None  # 
 assert avaliacao.auc([2, 1, 0], [True, False, False]) == 1.0  # separa perfeitamente
 assert avaliacao.auc([1, 1], [True, False]) == 0.5 and avaliacao.auc([0, 2], [True, False]) == 0.0  # empate e invertido
 assert avaliacao.auc([1, 2], [True, True]) is None  # sem quem não evadiu, não há o que comparar
+assert avaliacao.ic_proporcao(10, 100) == [0.055, 0.174] and avaliacao.ic_proporcao(0, 0) is None  # Wilson, valor conhecido
+assert avaliacao.ic_proporcao(0, 20)[0] == 0 and avaliacao.ic_proporcao(20, 20)[1] == 1  # nunca sai de 0 a 1
+assert avaliacao.ic_auc([3, 1, 2, 0], [True, True, False, False]) == [0.057, 1.0]  # DeLong feito à mão: 0,75 ± 0,693
+assert avaliacao.ic_auc([2, 1, 0], [True, False, False]) is None  # só 1 aluno que evadiu: sem variância para estimar
 av = chama("GET", "/api/avaliacao")
 assert (av["alunos"], av["evasoes"]) == (5000, 640) and av["acuracia_chute"] == 0.872, av
 regras = av["regras"]
@@ -144,6 +148,13 @@ for m in regras["cortes"].values():
 assert regras["cortes"]["medio_ou_alto"]["revocacao"] >= regras["cortes"]["alto"]["revocacao"]  # corte frouxo pega mais
 assert 0.5 < regras["auc"] <= 1 and regras["roc"][0] == {"fpr": 0.0, "tpr": 0.0, "corte": None}
 assert (regras["roc"][-1]["fpr"], regras["roc"][-1]["tpr"]) == (1.0, 1.0)
+assert regras["auc_ic"][0] < regras["auc"] < regras["auc_ic"][1]
+assert regras["auc_nivel_ic"][0] < regras["auc_nivel"] < regras["auc_nivel_ic"][1]
+for d in regras["por_nivel"].values():
+    assert d["ic"][0] <= d["taxa"] <= d["ic"][1], d
+for m in regras["cortes"].values():
+    for nome, ic in m["ic"].items():
+        assert ic[0] <= m[nome] <= ic[1], (nome, m)
 assert av["llm"]["alunos"] > 4900 and not av["llm"]["amostra_pequena"]  # o recálculo acima deu predição de LLM a quase todos
 assert av["llm"]["llm"]["alunos"] == av["llm"]["regras"]["alunos"] == av["llm"]["alunos"]  # mesmos alunos nos dois lados
 

@@ -355,18 +355,18 @@ tbody tr:last-child td{border-bottom:none;}
   <!-- PAINEL -->
   <section class="section active" id="sec-painel">
     <div class="filters">
-      <select id="painelTurma" aria-label="Turma"><option value="">Todas as turmas</option></select>
+      <select id="painelTurma" aria-label="Período"><option value="">Todos os períodos</option></select>
       <select id="painelGrafico" aria-label="Tipo de gráfico">
-        <option value="alto">Barras — % de alto risco por turma</option>
-        <option value="empilhado">Barras empilhadas — alto, médio e baixo por turma</option>
+        <option value="alto">Barras — % de alto risco por período</option>
+        <option value="empilhado">Barras empilhadas — alto, médio e baixo por período</option>
         <option value="rosca">Rosca — distribuição de risco</option>
-        <option value="rede">Rede — alunos com risco por turma</option>
+        <option value="rede">Rede — alunos com risco por período</option>
       </select>
     </div>
     <div class="stat-grid" id="statGrid"></div>
     <div class="two-col">
       <div class="panel">
-        <h3 id="graficoTitulo">Distribuição de risco por turma</h3>
+        <h3 id="graficoTitulo">Distribuição de risco por período</h3>
         <div id="grafico"></div>
       </div>
       <div class="panel">
@@ -381,7 +381,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="panel">
       <div class="filters">
         <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
-        <select id="filterTurma"><option value="">Todas as turmas</option></select>
+        <select id="filterTurma" aria-label="Período"><option value="">Todos os períodos</option></select>
         <select id="filterRisco">
           <option value="">Todos os níveis de risco</option>
           <option value="alto">Alto risco</option>
@@ -391,7 +391,7 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Aluno</th><th>Turma</th><th>Frequência</th><th>Nota média</th><th>Reprovações</th><th>Risco</th></tr></thead>
+          <thead><tr><th>Aluno</th><th>Período</th><th>Frequência</th><th>Nota média</th><th>Reprovações</th><th>Risco</th></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -453,7 +453,7 @@ tbody tr:last-child td{border-bottom:none;}
   <section class="section" id="sec-config">
     <div class="panel">
       <h3>Recalcular predições</h3>
-      <p class="vazio" style="margin-bottom:12px">Gera de novo a predição (regras + LLM) de todos os alunos, em segundo plano. Quem não mudou desde a última análise é pulado.</p>
+      <p class="vazio" style="margin-bottom:12px">Gera de novo a predição (modelo, regras e comentário da LLM) de todos os alunos, em segundo plano. Quem não mudou desde a última análise é pulado.</p>
       <div class="predict-box" style="margin-bottom:0">
         <button class="btn" id="recalcBtn">Recalcular</button>
         <label class="vazio"><input type="checkbox" id="recalcForcar"> Reanalisar também quem não mudou</label>
@@ -611,6 +611,9 @@ document.getElementById("feedbackForm").addEventListener("submit", async e=>{
   finally{ botao.disabled = false; }
 });
 const riskLabel = {alto:"Alto",medio:"Médio",baixo:"Baixo"};
+// nível com a chance de evasão do modelo treinado, quando houver: "Alto — 42%"
+const comPct = (rotulo, x) => x?.probabilidade==null ? rotulo : `${rotulo} — ${Math.round(x.probabilidade*100)}%`;
+const rotuloRisco = n => "Risco " + riskLabel[n].toLowerCase();
 const riskColor = {alto:"var(--risk-high)",medio:"var(--risk-med)",baixo:"var(--risk-low)"};
 
 document.querySelectorAll(".nav-item").forEach(btn=>{
@@ -634,7 +637,7 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
   });
 });
 
-// o painel inteiro (cards, gráfico e lista crítica) olha só para a turma escolhida no filtro
+// o painel inteiro (cards, gráfico e lista crítica) olha só para o período escolhido no filtro
 function renderPainel(){
   const turma = document.getElementById("painelTurma").value;
   const lista = alunos.filter(a=>turma===""||String(a.periodo)===turma);
@@ -659,8 +662,8 @@ function renderGrafico(lista){
   const tipo = document.getElementById("painelGrafico").value;
   const el = document.getElementById("grafico");
   document.getElementById("graficoTitulo").textContent =
-    tipo==="rosca" ? "Distribuição de risco" : "Distribuição de risco por turma";
-  if(lista.length===0){ el.innerHTML = `<p style="font-size:13px;color:var(--text-soft)">Nenhum dado de turma disponível ainda.</p>`; return; }
+    tipo==="rosca" ? "Distribuição de risco" : "Distribuição de risco por período";
+  if(lista.length===0){ el.innerHTML = `<p style="font-size:13px;color:var(--text-soft)">Nenhum dado disponível ainda.</p>`; return; }
   if(tipo==="rede"){ el.innerHTML = graficoRede(); return; }
   if(tipo==="rosca"){
     const counts = contarRisco(lista);
@@ -676,8 +679,9 @@ function renderGrafico(lista){
         <b>${counts[r]}</b> (${Math.round(counts[r]/lista.length*100)}%)</span>`).join("")}</div></div>`;
     return;
   }
-  // cada turma é a leva de alunos que cursa o mesmo período junta
+  // agrupa por período do curso (as turmas de verdade, por disciplina, ficam na aba Turmas)
   const turmas = [...new Set(lista.map(a=>a.periodo))].sort((a,b)=>a-b);
+  const avisoHistorico = turmas.includes(1) ? `<p class="note">No 1º período, os alunos têm menos de 8 registros e o risco fica limitado a médio. A ausência de risco alto vem dessa regra e não significa que eles estejam seguros.</p>` : "";
   el.innerHTML = turmas.map(t=>{
     const daTurma = lista.filter(a=>a.periodo===t);
     const counts = contarRisco(daTurma);
@@ -689,15 +693,15 @@ function renderGrafico(lista){
       : `<div class="bar-track"><div class="bar-fill" style="width:${pct("alto")}%;background:var(--risk-high)"></div></div>
          <span class="val">${pct("alto")}%</span>`;
     return `<div class="bar-row"><span class="name">${t}º período</span>${barra}</div>`;
-  }).join("") + (tipo==="empilhado" ? legendaRisco() : "");
+  }).join("") + (tipo==="empilhado" ? legendaRisco() : "") + avisoHistorico;
 }
-// gráfico em rede (radar): um eixo por turma, com quantos alunos estão com risco (alto ou médio).
-// Mostra sempre todas as turmas (comparar é o objetivo); a escolhida no filtro fica destacada.
+// gráfico em rede (radar): um eixo por período, com quantos alunos estão com risco (alto ou médio).
+// Mostra sempre todos os períodos (comparar é o objetivo); o escolhido no filtro fica destacado.
 function graficoRede(){
   const turmas = [...new Set(alunos.map(a=>a.periodo))].sort((a,b)=>a-b);
   const escolhida = document.getElementById("painelTurma").value;
   const comRisco = turmas.map(t=>alunos.filter(a=>a.periodo===t && a.risco!=="baixo").length);
-  const max = Math.max(1, ...comRisco);  // a turma com mais alunos em risco encosta na borda
+  const max = Math.max(1, ...comRisco);  // o período com mais alunos em risco encosta na borda
   const cx=260, cy=150, R=105;
   const ponto = (i,frac) => { const ang = -Math.PI/2 + i*2*Math.PI/turmas.length;
     return [cx+Math.cos(ang)*R*frac, cy+Math.sin(ang)*R*frac]; };
@@ -741,11 +745,11 @@ addEventListener('mousemove', e => {
   pupila.style.transform = `translate(${dx / d * k * 15}px, ${dy / d * k * 15}px)`;
 });
 function renderCritical(lista){
-  const top = lista.filter(a=>a.risco==="alto").sort((a,b)=>a.freq-b.freq).slice(0,5);
+  const top = lista.filter(a=>a.risco==="alto").sort((a,b)=>(b.probabilidade??0)-(a.probabilidade??0) || a.freq-b.freq).slice(0,5);
   const el = document.getElementById("criticalList");
   el.innerHTML = top.length ? top.map(a=>`
     <div class="mini-row"><div><div class="who">${a.nome}</div><div class="meta">${a.periodo}º período</div></div>
-    <span class="badge alto">${a.freq??"—"}% freq.</span></div>`).join("")
+    <span class="badge alto">${a.probabilidade==null ? `${a.freq??"—"}% freq.` : comPct("Alto", a)}</span></div>`).join("")
     : `<p style="font-size:13px;color:var(--text-soft)">Nenhum aluno em risco crítico no momento.</p>`;
 }
 function renderTable(){
@@ -764,8 +768,8 @@ function renderTable(){
       <td>${a.freq??"—"}%</td>
       <td>${a.nota==null?"—":a.nota.toFixed(1)}</td>
       <td>${a.reprovacoes}</td>
-      <td><span class="badge ${a.risco}">${riskLabel[a.risco]}</span></td>
-    </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:26px">Nenhum aluno encontrado.</td></tr>`;
+      <td><span class="badge ${a.risco}">${comPct(riskLabel[a.risco], a)}</span></td>
+    </tr>`).join("") ||`<tr><td colspan="6" style="text-align:center;color:var(--text-soft);padding:26px">Nenhum aluno encontrado.</td></tr>`;
   document.querySelectorAll("#tableBody tr[data-idx]").forEach(tr=>{
     tr.addEventListener("click",()=>openModal(alunos[tr.dataset.idx]));
   });
@@ -796,17 +800,20 @@ const SITUACAO = {APROVADO:["Aprovado","baixo"], EM_CURSO:["Em curso","neutro"],
   REPROVADO_NOTA:["Reprovado por nota","alto"], REPROVADO_FREQUENCIA:["Reprovado por frequência","alto"]};
 const quando = t => new Date(t.replace(" ","T")+"Z").toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});  // banco grava em UTC
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-// quem decidiu (LLM ou regras), o comentário, os ajustes das regras duras e o aviso se a LLM estava fora do ar
+// quem decidiu (modelo, LLM ou regras), o comentário, os ajustes das regras duras e o aviso se a LLM estava fora do ar
+const origemHtml = r => r.modelo_risco_id
+  ? `Modelo treinado (versão ${r.modelo_risco_id}) · chance estimada de evasão: ${Math.round(r.probabilidade*100)}%${r.origem==="llm" ? ` · comentário da LLM (${esc(r.modelo)})` : ""}`
+  : r.origem==="llm" ? `Análise da LLM (${esc(r.modelo)}) · regras: ${riskLabel[r.nivel_regras]} · LLM: ${riskLabel[r.nivel_llm]}` : "Calculado só pelas regras";
 const analiseHtml = r => `<div class="analise">
-  <div class="origem">${r.origem==="llm" ? `Análise da LLM (${esc(r.modelo)}) · regras: ${riskLabel[r.nivel_regras]} · LLM: ${riskLabel[r.nivel_llm]}` : "Calculado só pelas regras"}</div>
+  <div class="origem">${origemHtml(r)}</div>
   ${r.comentario ? `<p>${esc(r.comentario)}</p>` : ""}
   ${(r.ajustes||[]).map(t=>`<p class="vazio">Regra dura: ${esc(t)}.</p>`).join("")}
-  ${r.aviso ? `<p class="vazio">LLM indisponível; valeu o cálculo por regras (${esc(r.aviso)}).</p>` : ""}</div>`;
+  ${r.aviso ? `<p class="vazio">LLM indisponível; ${r.modelo_risco_id ? "a predição saiu sem comentário" : "valeu o cálculo por regras"} (${esc(r.aviso)}).</p>` : ""}</div>`;
 // a predição gerada vira o risco mostrado no painel e na tabela, sem recarregar a página
 function atualizaRisco(matricula, r){
   const a = alunos.find(x=>x.matricula===matricula);
   if(!a) return;
-  a.risco = r.risco; a.risco_origem = r.origem;
+  a.risco = r.risco; a.risco_origem = r.modelo_risco_id ? "modelo" : r.origem; a.probabilidade = r.probabilidade;
   renderPainel(); renderTable();
 }
 
@@ -821,7 +828,7 @@ async function mostrarFicha(matricula, el, resultado=null){
     el.innerHTML = `
       <div class="ficha-head">
         <div><h3>${a.nome}</h3><div class="meta">${a.matricula} · ${a.curso} · ${a.periodo}º período · ${a.situacao}</div></div>
-        <span class="badge ${a.risco}">${riskLabel[a.risco]} risco</span>
+        <span class="badge ${a.risco}">${comPct(rotuloRisco(a.risco), a)}</span>
       </div>
       <div class="ficha-stats">
         <div class="stat-card"><div class="lbl">Frequência média</div><div class="num">${a.freq==null?"—":a.freq+"%"}</div></div>
@@ -836,7 +843,7 @@ async function mostrarFicha(matricula, el, resultado=null){
       ${resultado ? analiseHtml(resultado) : ""}
       <div style="margin-top:8px">${hist.length ? hist.map(h=>`
         <div class="hist-row"><span>${quando(h.criado_em)}</span>
-          <span><span class="badge ${h.risco}">${riskLabel[h.risco]}</span> <span class="vazio">pontuação ${h.score??"—"} · ${h.origem==="llm" ? "LLM" : "regras"}</span></span></div>
+          <span><span class="badge ${h.risco}">${comPct(riskLabel[h.risco], h)}</span> <span class="vazio">pontuação ${h.score??"—"} · ${h.modelo_risco_id ? `modelo v${h.modelo_risco_id}` : h.origem==="llm" ? "LLM" : "regras"}</span></span></div>
         ${h.comentario_predicao ? `<div class="vazio hist-com">${esc(h.comentario_predicao)}</div>` : ""}`).join("")
         : `<p class="vazio">Nenhuma predição gerada ainda.</p>`}</div>
       ${fbs ? `<h4>Feedbacks do aluno</h4>${feedbacksHtml(fbs, "O aluno ainda não enviou nenhum feedback.")}` : ""}
@@ -884,7 +891,7 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
   atualizaRisco(a.matricula, r);
   const {risco, fatores} = r;
   const badge = document.getElementById("gaugeBadge");
-  badge.textContent = riskLabel[risco]+" risco";
+  badge.textContent = comPct(rotuloRisco(risco), r);
   badge.style.background = risco==="alto"?"var(--risk-high-bg)":risco==="medio"?"var(--risk-med-bg)":"var(--risk-low-bg)";
   badge.style.color = riskColor[risco];
   document.getElementById("gaugeText").textContent = "Classificação para "+a.nome;
@@ -898,6 +905,7 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
 let avaliacao = null;
 const pct = v => v==null ? "—" : (v*100).toFixed(1).replace(".",",")+"%";
 const dec = v => v==null ? "—" : v.toFixed(3).replace(".",",");
+const faixa = (ic, f=pct) => ic ? `IC 95%: ${f(ic[0])} a ${f(ic[1])}` : "";
 const CORTES = {medio_ou_alto:"Médio ou alto = previu evasão", alto:"Só alto = previu evasão"};
 const METRICAS = [
   ["acuracia","Acurácia","dos alunos, quantos o modelo classificou certo (evadiu ou não)"],
@@ -923,6 +931,29 @@ function graficoRoc(roc, valorAuc){
     <text x="${x(.62)}" y="${y(.5)}">acaso (AUC 0,5)</text>
   </svg>`;
 }
+// modelo treinado x regras, medidos só nos alunos separados para o teste (o modelo nunca os viu)
+function painelModelo(t, corte){
+  if(!t) return `<div class="panel"><h3>Modelo treinado</h3><p class="vazio">Nenhum modelo treinado ainda. No terminal, rode: flask --app app/Espiada.py treinar-modelo</p></div>`;
+  const m = t.metricas, comIc = (v, ic, f) => `${f(v)}<br><small class="vazio" style="font-weight:400">${faixa(ic, f)}</small>`;
+  const linha = (nome, f) => `<tr><td>${nome}</td><td>${f(m.regras)}</td><td><b>${f(m.modelo)}</b></td></tr>`;
+  return `<div class="panel">
+    <h3>Modelo treinado (versão ${t.id})</h3>
+    <p class="note">Aprendeu com ${m.treino.alunos} alunos e foi testado em ${m.teste.alunos} que nunca viu (${m.teste.evasoes} evasões). Ganho de AUC sobre ${esc(m.referencia)}: ${dec(m.ganho_auc.valor)} (${faixa(m.ganho_auc.ic, dec)}).</p>
+    <div class="two-col">
+      <div class="table-wrap"><table class="ficha"><thead><tr><th>No teste</th><th>Regras</th><th>Modelo</th></tr></thead><tbody>
+        ${linha("AUC da ordenação", b=>comIc(b.auc, b.auc_ic, dec))}
+        ${linha("AUC do nível final", b=>comIc(b.auc_nivel, b.auc_nivel_ic, dec))}
+        ${linha("Precisão", b=>pct(b.cortes[corte].precisao))}
+        ${linha("Revocação", b=>pct(b.cortes[corte].revocacao))}
+        ${linha("F1", b=>dec(b.cortes[corte].f1))}
+      </tbody></table></div>
+      <div class="table-wrap"><table class="ficha"><thead><tr><th>Grupo de alunos</th><th>Chance prevista</th><th>Evasão real</th></tr></thead><tbody>
+        ${m.calibracao.map((g,i)=>`<tr><td>${i===0?"Menor risco":i===m.calibracao.length-1?"Maior risco":`Faixa ${i+1}`} (${g.alunos})</td><td>${pct(g.previsto)}</td><td>${pct(g.real)}</td></tr>`).join("")}
+      </tbody></table></div>
+    </div>
+    <p class="note">Níveis do modelo: médio a partir de ${pct(m.cortes.medio)} e alto a partir de ${pct(m.cortes.alto)} de chance de evasão, com as regras duras por cima. As medidas de precisão, revocação e F1 seguem o corte escolhido na matriz abaixo.</p>
+  </div>`;
+}
 function renderAvaliacao(){
   const a = avaliacao, g = a.regras, corte = document.getElementById("avCorte")?.value || "medio_ou_alto", m = g.cortes[corte];
   const maior = Math.max(...Object.values(g.por_nivel).map(n=>n.taxa||0), .01);
@@ -930,26 +961,28 @@ function renderAvaliacao(){
     <div class="bar-row"><span class="name">${riskLabel[n]}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${(d.taxa||0)/maior*100}%;background:${riskColor[n]}"></div></div>
       <span class="val" style="width:52px">${pct(d.taxa)}</span></div>
-    <p class="vazio" style="margin:-8px 0 12px 86px">${d.evasoes} evasões em ${d.alunos} alunos</p>`; }).join("");
+    <p class="vazio" style="margin:-8px 0 12px 86px">${d.evasoes} evasões em ${d.alunos} alunos${d.ic?` · ${faixa(d.ic)}`:""}</p>`; }).join("");
   const celula = (v, total, rot, certo) => `<td class="${certo?"certo":"errado"}"><b>${v}</b><small>${rot} · ${pct(v/total)}</small></td>`;
   const l = a.llm;
   const comparacao = !l.alunos ? `<p class="vazio">Nenhum aluno tem predição da LLM guardada ainda. Rode o recálculo em lote (aba Config.) com o Ollama ligado para ter o que comparar.</p>` : `
-    ${l.amostra_pequena ? `<p class="aviso">Só ${l.alunos} aluno(s) têm predição da LLM. Com tão pouca gente, a comparação não permite concluir nada: rode o recálculo em lote para avaliar a LLM em todos.</p>` : ""}
-    <div class="table-wrap"><table class="ficha"><thead><tr><th>Mesmos ${l.alunos} alunos</th><th>AUC</th><th>Precisão</th><th>Revocação</th><th>F1</th></tr></thead><tbody>
-      ${[["Regras",l.regras],["Regras + LLM",l.llm]].map(([nome,b])=>`<tr><td>${nome}</td><td>${dec(b.auc)}</td><td>${pct(b.cortes[corte].precisao)}</td><td>${pct(b.cortes[corte].revocacao)}</td><td>${dec(b.cortes[corte].f1)}</td></tr>`).join("")}
+    ${l.amostra_pequena ? `<p class="aviso">A comparação tem ${l.alunos} aluno(s), com ${l.llm.evasoes} evasão(ões). Para concluir algo, são necessários pelo menos ${l.eventos_minimos} alunos que evadiram e ${l.eventos_minimos} que ficaram: rode o recálculo em lote.</p>`
+      : l.parcial ? `<p class="aviso">Só ${l.alunos} de ${a.alunos} alunos têm predição da LLM. Eles podem não representar o todo, então o resultado vale apenas para esse grupo.</p>` : ""}
+    <div class="table-wrap"><table class="ficha"><thead><tr><th>Mesmos ${l.alunos} alunos</th><th>AUC do nível</th><th>Precisão</th><th>Revocação</th><th>F1</th></tr></thead><tbody>
+      ${[["Regras",l.regras],["Regras + LLM",l.llm]].map(([nome,b])=>`<tr><td>${nome}</td><td>${dec(b.auc)}<br><small class="vazio">${faixa(b.auc_ic,dec)}</small></td><td>${pct(b.cortes[corte].precisao)}</td><td>${pct(b.cortes[corte].revocacao)}</td><td>${dec(b.cortes[corte].f1)}</td></tr>`).join("")}
     </tbody></table></div>`;
   document.getElementById("avaliacaoConteudo").innerHTML = `
+    ${painelModelo(a.modelo_treinado, corte)}
     <div class="stat-grid">
       <div class="stat-card"><div class="lbl">Alunos avaliados</div><div class="num">${a.alunos}</div></div>
       <div class="stat-card high"><div class="lbl">Evasões reais</div><div class="num">${a.evasoes}</div><div class="vazio">${pct(a.taxa_evasao)} dos alunos</div></div>
-      <div class="stat-card"><div class="lbl">AUC das regras</div><div class="num">${dec(g.auc)}</div><div class="vazio">0,5 = sorteio · 1 = perfeito</div></div>
+      <div class="stat-card"><div class="lbl">AUC das regras (nível)</div><div class="num">${dec(g.auc_nivel)}</div><div class="vazio">${faixa(g.auc_nivel_ic,dec)}<br>0,5 = sorteio · 1 = perfeito</div></div>
       <div class="stat-card"><div class="lbl">F1 (${corte==="alto"?"só alto":"médio ou alto"})</div><div class="num">${dec(m.f1)}</div></div>
     </div>
     <div class="two-col">
-      <div class="panel"><h3>Evasão real em cada nível de risco</h3>${barras}
+      <div class="panel"><h3>Evasão real em cada nível das regras</h3>${barras}
         <p class="note">Se o modelo ordena bem, a taxa sobe de baixo para alto. A média geral é ${pct(a.taxa_evasao)}.</p></div>
-      <div class="panel"><h3>Curva ROC das regras (AUC ${dec(g.auc)})</h3>${graficoRoc(g.roc, g.auc)}
-        <p class="note">Cada ponto é um corte da pontuação das regras (0 a 7). Quanto mais a curva sobe à esquerda da diagonal, melhor. Pelo nível final (baixo, médio, alto) a AUC é ${dec(g.auc_nivel)}.</p></div>
+      <div class="panel"><h3>Curva ROC da pontuação (AUC ${dec(g.auc)})</h3>${graficoRoc(g.roc, g.auc)}
+        <p class="note">Cada ponto é um corte da pontuação das regras (0 a 7), antes das regras duras (${faixa(g.auc_ic,dec)}). Quanto mais a curva sobe à esquerda da diagonal, melhor. O nível das regras (baixo, médio, alto) tem AUC ${dec(g.auc_nivel)}, a do cartão acima.</p></div>
     </div>
     <div class="panel">
       <h3>Matriz de confusão das regras</h3>
@@ -960,8 +993,9 @@ function renderAvaliacao(){
           <tr><th>Previu evasão</th>${celula(m.vp,a.alunos,"verdadeiro positivo",true)}${celula(m.fp,a.alunos,"falso positivo (alarme falso)",false)}</tr>
           <tr><th>Não previu</th>${celula(m.fn,a.alunos,"falso negativo (escapou)",false)}${celula(m.vn,a.alunos,"verdadeiro negativo",true)}</tr>
         </tbody></table></div>
-      ${METRICAS.map(([k,nome,txt])=>`<div class="detail-row"><span><span class="v">${nome}</span> <span class="vazio">— ${txt}</span></span><span class="v">${k==="f1"?dec(m[k]):pct(m[k])}</span></div>`).join("")}
+      ${METRICAS.map(([k,nome,txt])=>`<div class="detail-row"><span><span class="v">${nome}</span> <span class="vazio">— ${txt}</span></span><span class="v">${k==="f1"?dec(m[k]):pct(m[k])}${m.ic[k]?` <small class="vazio">(${faixa(m.ic[k])})</small>`:""}</span></div>`).join("")}
       <p class="note">Atenção à acurácia: como só ${pct(a.taxa_evasao)} evadem, quem "chuta" que ninguém evade já acerta ${pct(a.acuracia_chute)}, sem prever nada. Por isso as medidas que importam aqui são revocação, precisão, F1 e AUC.</p>
+      <p class="note">O IC 95% (intervalo de confiança) é a faixa de valores plausíveis para a medida, dada a quantidade de alunos. Ele cobre só a incerteza da amostra: como os dados são sintéticos, não mostra se o modelo funcionaria com alunos reais.</p>
     </div>
     <div class="panel"><h3>LLM x regras nos mesmos alunos</h3>${comparacao}</div>`;
   document.getElementById("avCorte").addEventListener("change", renderAvaliacao);

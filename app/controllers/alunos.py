@@ -2,9 +2,17 @@
 from flask import Blueprint, abort, jsonify, session
 
 from controllers.comum import exige, ler_json, negar
-from models import alunos, feedback, predicao
+from models import alunos, feedback, modelo_risco, predicao
 
 bp = Blueprint("alunos", __name__)
+
+
+def _com_risco(aluno, ultima, previsao):
+    """Junta o risco ao resumo. O aluno vê o próprio nível, mas não a porcentagem: ela é apoio para quem acompanha."""
+    dados = aluno | predicao.risco_atual(aluno, ultima, previsao)
+    if session["perfil"] == "aluno":
+        del dados["probabilidade"]
+    return dados
 
 
 def aluno_visivel(matricula):
@@ -19,14 +27,16 @@ def aluno_visivel(matricula):
 
 @bp.get("/api/alunos")
 def listar_alunos():
-    ultimas = predicao.ultimas_por_aluno()  # o risco mostrado é o da última predição guardada (ou o das regras)
-    return jsonify([a | predicao.risco_atual(a, ultimas.get(a["matricula"])) for a in alunos.listar(session)])
+    lista = alunos.listar(session)
+    ultimas = predicao.ultimas_por_aluno()
+    previsoes = modelo_risco.prever([a["matricula"] for a in lista])  # vazio enquanto não houver modelo treinado
+    return jsonify([_com_risco(a, ultimas.get(a["matricula"]), previsoes.get(a["matricula"])) for a in lista])
 
 
 @bp.get("/api/alunos/<matricula>")
 def obter_aluno(matricula):
     aluno = aluno_visivel(matricula)
-    aluno |= predicao.risco_atual(aluno, predicao.ultima(matricula))
+    aluno = _com_risco(aluno, predicao.ultima(matricula), modelo_risco.prever([matricula]).get(matricula))
     aluno["disciplinas"] = alunos.disciplinas(matricula)
     return jsonify(aluno)
 
@@ -50,11 +60,14 @@ def listar_feedback(matricula):
 def gerar_predicao(matricula):
     exige("professor", "secretaria")  # aluno só consulta
     aluno = aluno_visivel(matricula)
-    # regras + LLM; sem Ollama a predição sai só com as regras e a resposta traz o motivo em "aviso"
+    # modelo (ou regras) + LLM; sem Ollama a predição sai sem comentário e a resposta traz o motivo em "aviso"
     return jsonify({"matricula": matricula} | predicao.analisar(matricula, aluno)), 201
 
 
 @bp.get("/api/alunos/<matricula>/predicao")
 def historico_predicao(matricula):
     aluno_visivel(matricula)
-    return jsonify(predicao.historico(matricula))
+    linhas = predicao.historico(matricula)
+    if session["perfil"] == "aluno":  # o aluno não vê a porcentagem (ver _com_risco)
+        linhas = [{c: v for c, v in linha.items() if c != "probabilidade"} for linha in linhas]
+    return jsonify(linhas)

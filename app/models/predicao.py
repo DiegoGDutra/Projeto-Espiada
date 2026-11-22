@@ -1,13 +1,14 @@
-"""Risco de evasão: regras do cálculo, opinião da LLM e histórico de predições (tabela predicao_ia).
+"""Risco de evasão: regras do cálculo, modelo treinado, comentário da LLM e histórico de predições (predicao_ia).
 
-Ordem de uma predição: pontuação por regras -> a LLM (Ollama) opina, sem se afastar muito do nível das regras
--> as regras duras têm a palavra final. Sem LLM disponível vale o nível das regras e a predição fica marcada
-com origem 'regras'. O funcionamento completo está no readme.md (seção "Como o risco é calculado").
+Com modelo treinado: a chance de evasão define o nível, as regras duras têm a palavra final e a LLM só comenta.
+Sem modelo: pontuação por regras -> a LLM (Ollama) opina, sem se afastar muito do nível das regras -> regras duras.
+Sem LLM disponível, a predição fica marcada com origem 'regras'. O funcionamento completo está no readme.md
+(seção "Como o risco é calculado").
 """
 import hashlib
 import json
 
-from models import alunos, llm
+from models import alunos, llm, modelo_risco
 from models.banco import ErroModelo, consultar, transacao
 
 NIVEIS = ("baixo", "medio", "alto")
@@ -90,10 +91,11 @@ def _por_semestre(matricula):
              "reprovacoes": s["reprovacoes"]} for sem, s in sorted(semestres.items())]
 
 
-def entrada_llm(aluno, base):
+def entrada_llm(aluno, base, estatistica=None):
     """Contexto enviado à LLM. Anonimizado: sem nome, matrícula, endereço ou outro identificador; só indicadores,
-    resumo por semestre, comentários do aluno (texto livre, tratado como dado) e a pré-análise das regras."""
-    return {
+    resumo por semestre, comentários do aluno (texto livre, tratado como dado), a pré-análise das regras e, se houver
+    modelo treinado, o nível e a chance de evasão que ele calculou."""
+    contexto = {
         "periodo_atual": aluno["periodo"],
         "indicadores": {
             "frequencia_media": aluno["freq"], "nota_media": aluno["nota"], "reprovacoes": aluno["reprovacoes"],
@@ -108,6 +110,9 @@ def entrada_llm(aluno, base):
             "fatores_negativos": [f["descricao"] for f in base["fatores"] if f["negativo"]],
         },
     }
+    if estatistica:
+        contexto["modelo_estatistico"] = estatistica
+    return contexto
 
 
 def hash_entrada(contexto):
@@ -126,26 +131,33 @@ def _decidir(aluno, base, nivel_llm):
 
 
 def analisar(matricula, aluno, forcar=True):
-    """Gera e guarda a predição do aluno (regras + LLM). aluno: o resumo de alunos.buscar().
-    Se a LLM falhar, guarda a das regras e devolve o motivo em "aviso". forcar=False reaproveita a última predição
-    da LLM quando a entrada não mudou (é o que o recálculo em lote usa); o botão de gerar predição força."""
+    """Gera e guarda a predição do aluno. aluno: o resumo de alunos.buscar(). Com modelo treinado, ele define o nível
+    e a chance de evasão, e a LLM só escreve o comentário. Se a LLM falhar, guarda o cálculo sem comentário e devolve
+    o motivo em "aviso". forcar=False reaproveita a última predição da LLM quando a entrada não mudou (é o que o
+    recálculo em lote usa); o botão de gerar predição força."""
     base = calcular_risco(aluno)
-    contexto = entrada_llm(aluno, base)
+    previsao = modelo_risco.prever([matricula]).get(matricula)
+    risco, ajustes = aplicar_regras_duras(aluno, previsao["nivel"]) if previsao else (base["risco"], base["ajustes"])
+    contexto = entrada_llm(aluno, base, previsao and {
+        "nivel": risco, "chance_de_evasao_percentual": round(previsao["probabilidade"] * 100)})
     entrada = hash_entrada(contexto)
     anterior = ultima(matricula)
     if not forcar and anterior and anterior["origem"] == "llm" and anterior["entrada_hash"] == entrada:
         return _como_resultado(anterior) | {"reaproveitada": True}
-    resultado = {"risco": base["risco"], "score": base["score"], "fatores": base["fatores"],
-                 "ajustes": base["ajustes"], "comentario": None, "origem": "regras", "modelo": None,
-                 "nivel_regras": base["risco"], "nivel_llm": None}
+    resultado = {"risco": risco, "score": base["score"], "fatores": base["fatores"],
+                 "ajustes": ajustes, "comentario": None, "origem": "regras", "modelo": None,
+                 "nivel_regras": base["risco"], "nivel_llm": None,
+                 "probabilidade": previsao and previsao["probabilidade"],
+                 "modelo_risco_id": previsao and previsao["modelo_id"]}
     try:
         opiniao = llm.avaliar(contexto)
     except ErroModelo as e:
         resultado["aviso"] = e.mensagem
     else:
-        risco, ajustes = _decidir(aluno, base, opiniao["nivel"])
-        resultado.update(risco=risco, ajustes=list(dict.fromkeys(base["ajustes"] + ajustes)),
-                         comentario=opiniao["comentario"], origem="llm", modelo=opiniao["modelo"],
+        if not previsao:  # sem modelo treinado, a LLM ainda pode mover o nível das regras
+            risco, novos = _decidir(aluno, base, opiniao["nivel"])
+            resultado.update(risco=risco, ajustes=list(dict.fromkeys(base["ajustes"] + novos)))
+        resultado.update(comentario=opiniao["comentario"], origem="llm", modelo=opiniao["modelo"],
                          nivel_llm=opiniao["nivel"])
     salvar(matricula, resultado, entrada if resultado["origem"] == "llm" else None)
     return resultado
@@ -186,17 +198,20 @@ def salvar(matricula, resultado, entrada_hash=None):
     with transacao() as con:
         con.execute("""
             INSERT INTO predicao_ia (matricula_curso_id, nivel_risco, score, comentario_predicao,
-                                     origem, modelo, entrada_hash, detalhes)
-            SELECT matricula_curso_id, %s, %s, %s, %s, %s, %s, %s FROM matriculas_curso JOIN alunos USING (aluno_id)
+                                     origem, modelo, entrada_hash, detalhes, probabilidade, modelo_risco_id)
+            SELECT matricula_curso_id, %s, %s, %s, %s, %s, %s, %s, %s, %s
+              FROM matriculas_curso JOIN alunos USING (aluno_id)
              WHERE codigo_academico = %s""",
                     (resultado["risco"], resultado["score"], resultado.get("comentario"),
-                     resultado.get("origem", "regras"), resultado.get("modelo"), entrada_hash, detalhes, matricula))
+                     resultado.get("origem", "regras"), resultado.get("modelo"), entrada_hash, detalhes,
+                     resultado.get("probabilidade"), resultado.get("modelo_risco_id"), matricula))
 
 
 def _linhas(matricula, limite=None):  # None = sem limite (LIMIT NULL)
     linhas = consultar("""
         SELECT p.predicao_id AS id, p.criado_em, p.nivel_risco AS risco, p.score, p.comentario_predicao,
-               p.alterada_por, p.justificativa, p.origem, p.modelo, p.entrada_hash, p.detalhes
+               p.alterada_por, p.justificativa, p.origem, p.modelo, p.entrada_hash, p.detalhes,
+               p.probabilidade, p.modelo_risco_id
           FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
          WHERE a.codigo_academico = %s ORDER BY p.predicao_id DESC LIMIT %s""", matricula, limite)
     for linha in linhas:
@@ -215,20 +230,26 @@ def ultima(matricula):
 
 
 def ultimas_por_aluno():
-    """Última predição de cada aluno que já tem alguma: {matricula: {risco, origem, criado_em}}. Uma consulta só."""
+    """Última predição de cada aluno que já tem alguma: {matricula: {risco, origem, ...}}. Uma consulta só."""
     linhas = consultar("""
-        SELECT a.codigo_academico AS matricula, p.nivel_risco AS risco, p.origem, p.criado_em
+        SELECT a.codigo_academico AS matricula, p.nivel_risco AS risco, p.origem, p.criado_em,
+               p.probabilidade, p.modelo_risco_id
           FROM predicao_ia p JOIN matriculas_curso USING (matricula_curso_id) JOIN alunos a USING (aluno_id)
          WHERE p.predicao_id = (SELECT max(predicao_id) FROM predicao_ia
                                  WHERE matricula_curso_id = p.matricula_curso_id)""")
     return {linha["matricula"]: linha for linha in linhas}
 
 
-def risco_atual(aluno, ultima_predicao):
-    """Risco que as telas mostram: o da última predição guardada; sem nenhuma, o calculado pelas regras."""
+def risco_atual(aluno, ultima_predicao, previsao=None):
+    """Risco que as telas mostram: o do modelo treinado (com as regras duras); sem modelo, o da última predição
+    guardada; sem nenhuma, o calculado pelas regras. previsao: item de modelo_risco.prever()."""
+    if previsao:
+        return {"risco": aplicar_regras_duras(aluno, previsao["nivel"])[0], "risco_origem": "modelo",
+                "probabilidade": previsao["probabilidade"]}
     if ultima_predicao:
-        return {"risco": ultima_predicao["risco"], "risco_origem": ultima_predicao["origem"]}
-    return {"risco": calcular_risco(aluno)["risco"], "risco_origem": "regras"}
+        return {"risco": ultima_predicao["risco"], "risco_origem": ultima_predicao["origem"],
+                "probabilidade": ultima_predicao["probabilidade"]}
+    return {"risco": calcular_risco(aluno)["risco"], "risco_origem": "regras", "probabilidade": None}
 
 
 def _como_resultado(linha):
@@ -236,4 +257,5 @@ def _como_resultado(linha):
     return {"risco": linha["risco"], "score": linha["score"], "fatores": detalhes.get("fatores", []),
             "ajustes": detalhes.get("ajustes", []), "comentario": linha["comentario_predicao"],
             "origem": linha["origem"], "modelo": linha["modelo"], "nivel_regras": detalhes.get("nivel_regras"),
-            "nivel_llm": detalhes.get("nivel_llm")}
+            "nivel_llm": detalhes.get("nivel_llm"), "probabilidade": linha["probabilidade"],
+            "modelo_risco_id": linha["modelo_risco_id"]}

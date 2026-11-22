@@ -255,7 +255,7 @@
       </section>
       <section>
         <h3>5. Predição de risco</h3>
-        <p>O nível de risco é calculado de forma automática a partir de regras e indicadores. Ele é um <strong>apoio à decisão</strong>, não uma conclusão sobre o aluno, e não deve ser usado para punir ou excluir ninguém. Qualquer ação deve ser avaliada por uma pessoa.</p>
+        <p>O nível de risco e a chance estimada de evasão são calculados de forma automática, por um modelo estatístico e por regras, a partir de indicadores acadêmicos. Ele é um <strong>apoio à decisão</strong>, não uma conclusão sobre o aluno, e não deve ser usado para punir ou excluir ninguém. Qualquer ação deve ser avaliada por uma pessoa.</p>
       </section>
       <section>
         <h3>6. Disponibilidade</h3>
@@ -288,7 +288,7 @@
           <li><strong>Localização:</strong> cidade onde o aluno mora e a distância até o campus.</li>
           <li><strong>Perfil socioeconômico:</strong> renda pessoal e familiar, pessoas no domicílio, se trabalha e quantas horas, dependentes, se é a primeira geração da família no ensino superior, qualidade da internet, se veio de escola pública, bolsas e financiamentos.</li>
           <li><strong>Feedback:</strong> avaliação e comentários que o aluno envia sobre o curso ou a instituição.</li>
-          <li><strong>Predições:</strong> nível e pontuação de risco calculados, com data e eventuais alterações manuais e suas justificativas.</li>
+          <li><strong>Predições:</strong> nível, pontuação e chance estimada de evasão calculados, com data e eventuais alterações manuais e suas justificativas.</li>
           <li><strong>Registros de segurança:</strong> e-mail e endereço IP em tentativas de login que falharam; e-mail, perfil e endereço acessado em tentativas de acesso negadas.</li>
         </ul>
       </section>
@@ -312,12 +312,12 @@
       </section>
       <section>
         <h3>5. Decisões automatizadas</h3>
-        <p>O nível de risco é gerado de forma automatizada. Conforme o art. 20 da LGPD, o aluno pode pedir a <strong>revisão</strong> dessa classificação e saber quais critérios foram usados: frequência, nota média, reprovações, reclamações no feedback e distância até o campus. A predição pode ser alterada manualmente pela secretaria ou pelo professor da turma, sempre com justificativa registrada.</p>
+        <p>O nível de risco é gerado de forma automatizada. Conforme o art. 20 da LGPD, o aluno pode pedir a <strong>revisão</strong> dessa classificação e saber quais critérios foram usados. O modelo estatístico considera frequência, nota média, nota do semestre atual, reprovações, período e a tendência de notas e de frequência. As regras e a análise da LLM também consideram reclamações no feedback e distância até o campus. A porcentagem é uma estimativa e fica visível para professores e secretaria. A predição pode ser alterada manualmente pela secretaria ou pelo professor da turma, sempre com justificativa registrada.</p>
       </section>
       <section>
         <h3>6. Compartilhamento</h3>
         <p>Os dados não são vendidos nem compartilhados com terceiros. Ficam no servidor do próprio sistema.</p>
-        <p>A predição usa um modelo de linguagem (LLM), o <strong>qwen3:4b</strong>, rodando no próprio servidor pelo Ollama: nenhum dado é enviado para a nuvem. Ele recebe os indicadores acadêmicos, o resumo por semestre e os comentários do aluno, sem nome, matrícula ou endereço.</p>
+        <p>A explicação da predição usa um modelo de linguagem (LLM), o <strong>qwen3:4b</strong>, rodando no próprio servidor pelo Ollama: nenhum dado é enviado para a nuvem. Ele recebe os indicadores acadêmicos, o resumo por semestre, os comentários do aluno e o resultado do modelo estatístico, sem nome, matrícula ou endereço.</p>
         <p>A LLM foi usada apenas em <strong>testes locais</strong>. Os dados enviados a ela <strong>ainda não passaram por tratamento de acordo com a LGPD</strong>.</p>
       </section>
       <section>

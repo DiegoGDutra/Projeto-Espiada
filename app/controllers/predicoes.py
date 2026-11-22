@@ -6,7 +6,7 @@ import click
 from flask import Blueprint, abort, jsonify, request
 
 from controllers.comum import exige
-from models import avaliacao, llm, predicao
+from models import avaliacao, llm, predicao, treino
 from models.banco import ErroModelo, criar_banco
 
 bp = Blueprint("predicoes", __name__, cli_group=None)  # cli_group=None: o comando fica "flask recalcular-predicoes"
@@ -72,3 +72,20 @@ def recalcular_cli(forcar):
     click.echo()
     if resumo["interrompido"]:
         raise click.ClickException("a LLM falhou várias vezes seguidas; recálculo interrompido")
+
+
+@bp.cli.command("treinar-modelo")
+def treinar_cli():
+    """Treina o modelo de risco, testa em alunos à parte e só o coloca em uso se superar a referência."""
+    criar_banco()
+    try:
+        r = treino.treinar()
+    except ErroModelo as e:
+        raise click.ClickException(e.mensagem)
+    m = r["metricas"]
+    click.echo(f"Versão {r['id']}: treino com {m['treino']['alunos']} alunos, teste com {m['teste']['alunos']}")
+    click.echo(f"AUC no teste: modelo {m['modelo']['auc']:.3f} | regras {m['regras']['auc']:.3f}")
+    click.echo(f"Ganho sobre {r['referencia']}: {m['ganho_auc']['valor']:+.3f} "
+               f"(IC 95%: {m['ganho_auc']['ic'][0]:+.3f} a {m['ganho_auc']['ic'][1]:+.3f})")
+    click.echo("Aprovado: o sistema passa a usar esta versão." if r["aprovado"]
+               else "Não aprovado: o sistema continua como estava.")
