@@ -1,8 +1,29 @@
-# PostgreSQL do Espiada para desenvolvimento.  Subir uma vez:  docker compose up -d
+# Espiada completo no Docker: aplicação (web) + PostgreSQL (banco).  Subir ou atualizar:  docker compose up -d --build
+# Abre em http://127.0.0.1:5000. Na primeira subida, o dataset é importado e o modelo é treinado sozinhos.
 # Volta sozinho sempre que o Docker inicia. Zerar o banco (apaga os dados):  docker compose down -v
+# LLM: por padrão usa o Ollama instalado no computador. Para rodar também o Ollama em container, veja o readme.
 name: espiada  # nome do projeto no Docker: o volume vira espiada_dados (não mistura com outros projetos)
 
 services:
+  web:
+    build: .
+    image: espiada-web
+    container_name: web-espiada
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://espiada:espiada@banco:5432/espiada  # dentro do Docker, o endereço do banco é "banco"
+      SECRET_KEY: ${SECRET_KEY:-}  # sem ela, reiniciar o container desloga todo mundo
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-120}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # faz esse nome funcionar também no Docker do Linux
+    ports:
+      - "127.0.0.1:5000:5000"  # só este computador acessa
+
   banco:
     image: postgres:17
     container_name: banco-espiada
@@ -20,5 +41,15 @@ services:
       interval: 5s
       retries: 10
 
+  # Opcional e pesado (imagem de cerca de 3,4 GB comprimidos, mais o modelo). Só sobe com: --profile ollama
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    container_name: ollama-espiada
+    restart: unless-stopped
+    volumes:
+      - modelos:/root/.ollama  # o modelo baixado sobrevive quando o container é recriado
+
 volumes:
   dados:
+  modelos:

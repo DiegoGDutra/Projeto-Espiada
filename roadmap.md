@@ -9,15 +9,16 @@
 | API REST em JSON | 100% | Rotas por recurso em `/api/...`, erros padronizados `{"erro": ...}` | Novas rotas conforme as funcionalidades abaixo |
 | Login e sessão | 100% | Login por e-mail, senha forte, hash, cookie `HttpOnly`/`SameSite`, bloqueio após 5 erros | — |
 | Perfis e permissões | 100% | Aluno, professor e secretaria, cada um vê só o seu; `403` registrado no log; cadastro pelo terminal ou pela API | — |
+| Sistema inteiro no Docker | 95% | `docker compose up -d --build` sobe aplicação (imagem própria, usuário sem root, Waitress) e PostgreSQL; a primeira subida importa o dataset e treina o modelo, e as seguintes não mexem nos dados; healthcheck, reinício automático e portas só no próprio computador; LLM pelo Ollama do computador, testada a partir do container; os 5 testes passam dentro do container | Testar o perfil opcional com o Ollama em container (imagem de cerca de 3,4 GB comprimidos) |
 
 ## Monitoramento e painel
 
 | Funcionalidade | % | Feito | Falta |
 |---|---|---|---|
-| Painel principal (dashboard) | 70% | Cartões com total e contagem por nível de risco, lista dos alunos críticos, filtro por período que vale para o painel inteiro e seletor com 4 tipos de gráfico | Frequência média, nota média gerais e polimento de animações |
+| Painel principal (dashboard) | 85% | Cartões com total e contagem por nível de risco, nota e frequência (média, mediana, desvio padrão e quartis), lista dos alunos críticos, filtro por período que vale para o painel inteiro e seletor com 4 tipos de gráfico | Polimento de animações |
 | Filtros de alunos | 100% | Busca por nome, filtro por período e por nível de risco no Monitoramento; filtro por período no Painel | — |
 | Histórico individual do aluno | 100% | Ficha com notas e frequência por semestre e histórico de predições | - |
-| Gráficos de desempenho | 60% | Barras (% de alto risco por período), barras empilhadas (alto/médio/baixo por período), rosca (distribuição geral) e rede/radar (alunos com risco por período), feitos em CSS e SVG sem biblioteca; aviso de que o 1º período não chega a risco alto por causa da regra de histórico mínimo | Gráficos por aluno, de frequência e de notas |
+| Gráficos de desempenho | 100% | Barras, barras empilhadas, rosca e radar no Painel; histograma, boxplot e linha de evolução na aba Estatística; evolução de nota e frequência na ficha do aluno; tudo em CSS e SVG, sem biblioteca; aviso de que o 1º período não chega a risco alto por causa da regra de histórico mínimo | — |
 | Aba Turmas | 80% | Tabela com as turmas (disciplina, docente, semestre, turno, modalidade, vagas), busca e filtro por semestre, a partir de `GET /api/turmas`, `/api/disciplinas` e `/api/docentes` | Alunos e risco por turma; professor ver só as próprias turmas |
 | Alunos que mudaram de situação | 0% | — | Listar quem mudou de nível de risco, do mais recente para o mais antigo (impossível pois o dados não serão analisados e disponibilizados com o tempo)|
 
@@ -36,18 +37,18 @@
 
 ## Estatística
 
-Os professores pediram mais estatística no sistema. Hoje ele mostra contagens e médias simples; esta seção junta o que falta, do mais simples ao mais analítico. Tudo pode sair das tabelas que já existem (`registros_academicos`, `perfis_socioeconomicos`, `bolsas_alunos` e `desfechos_alunos`), sem dado novo.
+Os professores pediram mais estatística no sistema. A aba **Estatística** (professor vê as próprias turmas; secretaria vê tudo) e a aba Avaliação reúnem o que está abaixo. Tudo sai das tabelas que já existem (`registros_academicos`, `perfis_socioeconomicos`, `bolsas_alunos` e `desfechos_alunos`), sem dado novo. As escolhas de cada cálculo estão na seção "Estatística" do `readme.md`.
 
 | Funcionalidade | % | Feito | Falta |
 |---|---|---|---|
-| Estatística descritiva de notas e frequência | 10% | Painel com contagem e % por nível de risco; ficha do aluno e Monitoramento com a frequência média e a nota média de cada aluno | Média, mediana, moda, desvio padrão, mínimo, máximo e quartis de nota e de frequência, gerais e por período, turma e disciplina, em cartões no Painel |
-| Distribuições (histograma e boxplot) | 0% | — | Histograma de notas e de frequência; boxplot por período e por disciplina, em SVG como os gráficos atuais |
-| Aprovação e reprovação por disciplina | 0% | Situação de cada matrícula (aprovado, reprovado por nota ou por frequência) já está no banco | Taxa de aprovação, de reprovação por nota e de reprovação por frequência por disciplina, turma e semestre; ranking das disciplinas que mais reprovam |
-| Evolução ao longo dos semestres | 10% | A média de nota e de frequência por semestre de cada aluno já é calculada para a LLM (`_por_semestre` em `app/models/predicao.py`) | Gráfico de linha da média por semestre (aluno, turma e curso) e a inclinação da tendência (regressão linear) como indicador na ficha |
-| Fatores ligados à evasão | 0% | — | Taxa de evasão por grupo (trabalha, bolsista, distância, turno, internet, escola pública) com `desfechos_alunos`; correlação (Pearson/Spearman) e teste qui-quadrado para mostrar quais fatores pesam de verdade; base para calibrar os pesos das regras |
-| Comparação entre grupos | 0% | — | Diferença de médias entre grupos (ex.: bolsistas e não bolsistas, quem trabalha e quem não trabalha) com intervalo de confiança de 95% e teste t ou Mann-Whitney |
-| Avaliação do modelo de risco | 90% | Aba Avaliação (só secretaria) e `GET /api/avaliacao`, com `app/models/avaliacao.py`: evasão real por nível, matriz de confusão com dois cortes (médio ou alto; só alto), acurácia, precisão, revocação, especificidade, F1, AUC do nível final e da pontuação, curva ROC e intervalos de confiança de 95% (Wilson e DeLong); modelo treinado x regras nos 1000 alunos de teste, com calibração; LLM x regras nos mesmos alunos, com aviso de poucos eventos e de amostra parcial; regras explicadas no `readme.md`; testada em `testes/teste_api.py` e `testes/teste_modelo.py` | Comparar a LLM de verdade com o Ollama nos 5000 alunos, com teste pareado; avaliação por período e por turma |
-| Exportar as estatísticas | 0% | — | Tabelas de estatística em CSV junto com os relatórios exportáveis |
+| Estatística descritiva de notas e frequência | 100% | Média, mediana, moda, desvio padrão, mínimo, máximo, quartis e valores atípicos, gerais e filtrados por período, semestre, disciplina e turma; cartões no Painel | — |
+| Distribuições (histograma e boxplot) | 100% | Histograma de notas e de frequência em faixas de 5 pontos; boxplot por período e por disciplina, em SVG | — |
+| Aprovação e reprovação por disciplina | 100% | Taxa de aprovação, de reprovação por nota e por frequência, com IC 95% de Wilson, por disciplina, turma e semestre; ranking das disciplinas e das turmas que mais reprovam | — |
+| Evolução ao longo dos semestres | 100% | Gráfico de linha da média por semestre do curso, de cada grupo de ingresso (filtro por período) e do aluno (na ficha), com a inclinação da tendência por regressão linear; o semestre em curso aparece, mas fica fora da tendência porque a nota ainda é parcial | — |
+| Fatores ligados à evasão | 100% | Taxa de evasão por grupo (trabalha, bolsista, distância, turno, internet, escola pública e os critérios das regras) com IC 95%, razão de chances, qui-quadrado, V de Cramér e correção de Holm; correlações de Pearson e Spearman; serve de base para calibrar os pesos das regras | — |
+| Comparação entre grupos | 100% | Diferença de nota e de frequência entre grupos (trabalha, bolsista, escola pública, distância e turno), com IC 95%, teste t de Welch, Mann-Whitney, d de Cohen e correção de Holm | — |
+| Avaliação do modelo de risco | 95% | Aba Avaliação (só secretaria) e `GET /api/avaliacao`, com `app/models/avaliacao.py`: evasão real por nível, matriz de confusão com dois cortes (médio ou alto; só alto), acurácia, precisão, revocação, especificidade, F1, AUC do nível final e da pontuação, curva ROC e intervalos de confiança de 95% (Wilson e DeLong); modelo treinado x regras nos 1000 alunos de teste, com calibração; avaliação por período e por turma só nos alunos de teste, sem AUC em grupo com menos de 10 evasões; LLM x regras nos mesmos alunos, com teste pareado de McNemar; testada em `testes/teste_api.py`, `testes/teste_modelo.py` e `testes/teste_estatistica.py` | Rodar a comparação com o Ollama de verdade nos 5000 alunos: o teste está pronto, mas só considera predições feitas sem modelo treinado em uso |
+| Exportar as estatísticas | 100% | CSV de cada tabela (descritiva, distribuição, aprovação, evolução, fatores, correlações e comparações), respeitando filtros e perfil, com separador e decimal do Excel em português | — |
 
 ## Relatórios, feedback e notificações
 
@@ -65,9 +66,9 @@ Os professores pediram mais estatística no sistema. Hoje ele mostra contagens e
 | Validação nos próprios campos | 75% | `CHECK` no banco; formulário de cadastro valida e-mail e senha no campo; feedback exige a avaliação | Validar os campos das telas novas (pesos, justificativa) |
 | Logs e auditoria | 20% | Log no console de acesso negado e login errado | Registro persistente de requisições e alterações |
 | Limite de requisições | 15% | Só no login (5 erros = 15 min de bloqueio) | Máximo de 10 chamadas da mesma função a cada 3 h |
-| HTTPS / segurança de rede | 10% | Cookie de sessão protegido | Servir por HTTPS/TLS; `SECRET_KEY` fixa em produção |
-| LGPD | 40% | Cada perfil só recebe os alunos que pode ver; a LLM roda local e não recebe nome nem matrícula, mas os dados enviados a ela não passaram por tratamento de acordo com a LGPD; página `sobre.html` com Termos de Uso, Política de Privacidade, Cookies e Contato; link para a LGPD no rodapé de todas as telas | Tratar os dados enviados à LLM de acordo com a LGPD; preencher os placeholders (CNPJ, encarregado, prazo de guarda); criptografar nome e matrícula no banco; anonimizar os dados agregados dos relatórios |
+| HTTPS / segurança de rede | 20% | Cookie de sessão protegido; `SECRET_KEY` fixa pelo `.env`; no Docker, sem modo debug e com portas só no próprio computador | Servir por HTTPS/TLS |
+| LGPD | 40% | Cada perfil só recebe os alunos que pode ver; a LLM roda local e não recebe nome nem matrícula, mas os dados enviados a ela não passaram por tratamento de acordo com a LGPD; página `sobre.html` com Termos de Uso, Política de Privacidade, Cookies e Contato; link para a LGPD no rodapé de todas as telas; estatísticas e CSV só com dados agregados, sem nome nem matrícula, e análise socioeconômica só para a secretaria | Tratar os dados enviados à LLM de acordo com a LGPD; definir um tamanho mínimo de grupo nas estatísticas; preencher os placeholders (CNPJ, encarregado, prazo de guarda); criptografar nome e matrícula no banco; anonimizar os dados agregados dos relatórios |
 | Interface adaptável a dispositivos | 30% | Uma regra `@media` no painel | Ajustar o login e testar em celular e tablet |
 | Escalabilidade | 30% | Testado com 5000 alunos: importação em cerca de 6 s, lista do painel em cerca de 1 s e recálculo em lote com a LLM simulada em cerca de 30 a 40 s; PostgreSQL com pool de conexões | Teste com vários usuários ao mesmo tempo; recálculo com a LLM real |
-| Testes | 40% | `testes/teste_banco.py`, `testes/teste_api.py`, `testes/teste_llm.py` e `testes/teste_modelo.py` passam no PostgreSQL com os 5000 alunos, cada um num esquema próprio; modo debug ligado | Testes de segurança, com usuários reais, de carga, de dispositivos e de notificação |
+| Testes | 45% | `testes/teste_banco.py`, `teste_api.py`, `teste_llm.py`, `teste_modelo.py` e `teste_estatistica.py` passam no PostgreSQL com os 5000 alunos, cada um num esquema próprio; modo debug ligado | Testes de segurança, com usuários reais, de carga, de dispositivos e de notificação |
 

@@ -12,15 +12,16 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 ## O que o sistema faz
 
 - **Importação dos dados acadêmicos:** notas, frequência, endereço e perfil socioeconômico entram no banco só pelo importador (`scripts/importar.py`), a partir de um dataset sintético com 5000 alunos e 450 docentes de Engenharia de Software (2023-1 a 2026-2). Os 120 alunos originais foram ampliados por `scripts/ampliar_dados.py`, na proporção de 18 docentes a cada 200 alunos. Nenhum registro é de uma pessoa real, e nenhuma tela permite editar nota ou frequência.
-- **Painel geral:** cards com o total de alunos e quantos estão em risco alto, médio e baixo, a lista dos alunos em risco crítico e quatro tipos de gráfico: barras (% de alto risco por período), barras empilhadas (alto, médio e baixo por período), rosca (distribuição geral) e radar (alunos com risco por período). O filtro por período vale para o painel inteiro. Os gráficos são desenhados à mão em CSS e SVG, sem biblioteca.
+- **Painel geral:** cards com o total de alunos e quantos estão em risco alto, médio e baixo, a lista dos alunos em risco crítico e quatro tipos de gráfico: barras (% de alto risco por período), barras empilhadas (alto, médio e baixo por período), rosca (distribuição geral) e radar (alunos com risco por período). Também mostra média, mediana, desvio padrão e quartis de nota e frequência. O filtro por período vale para o painel inteiro. Os gráficos são desenhados à mão em CSS e SVG, sem biblioteca.
 - **Monitoramento:** tabela com todos os alunos visíveis, com período, frequência, nota, reprovações e risco. Tem busca por nome e filtros por período e por nível de risco. Clicar no aluno abre a ficha dele.
-- **Ficha do aluno:** notas e frequência de cada disciplina, separadas por semestre, e o histórico de predições de risco.
+- **Ficha do aluno:** notas e frequência de cada disciplina, separadas por semestre, a evolução com a tendência e o histórico de predições de risco.
 - **Predição de risco:** o professor ou a secretaria escolhe um aluno e gera a classificação. O modelo treinado calcula a chance de evasão, que aparece junto do nível (por exemplo, "Risco alto — 62%"), as regras duras têm a palavra final e uma LLM local escreve o comentário. A tela também mostra os fatores e os ajustes das regras duras. O aluno vê o próprio nível, mas não a porcentagem. A seção [Como o risco é calculado](#como-o-risco-é-calculado) explica cada passo.
 - **Recálculo em lote:** a secretaria pode recalcular a predição de todos os alunos de uma vez, em segundo plano, pelo botão Recalcular da aba Config., que mostra o andamento. Quem não mudou desde a última análise é pulado.
 - **Histórico que não se perde:** cada predição vira uma linha nova no banco. Nada é sobrescrito, então dá para ver como o risco de um aluno mudou ao longo do tempo.
 - **Perfis de acesso:** o aluno vê só o próprio desempenho; o professor vê só os alunos que passaram pelas turmas dele; a secretaria vê todos e cadastra usuários. Qualquer tentativa fora disso é negada e registrada no log.
 - **Feedback do aluno:** na tela Meu desempenho, o aluno avalia o curso ou a instituição (nota de 1 a 5 e comentário opcional) e vê a lista dos feedbacks que já enviou. O professor e a secretaria veem os feedbacks na ficha do aluno. Avaliação 1 ou 2 conta como reclamação no cálculo de risco.
-- **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC, intervalos de confiança de 95% e a comparação entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
+- **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC, intervalos de confiança de 95%, o acerto por período e por turma e a comparação pareada entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
+- **Estatística:** medidas descritivas, histogramas, boxplots, aprovação e reprovação, evolução por semestre e exportação em CSV, com filtros por período, semestre, disciplina e turma. O professor vê só as próprias turmas. A secretaria também vê os fatores ligados à evasão e a comparação entre grupos. A seção [Estatística](#estatística) explica cada cálculo.
 - **Turmas:** a aba Turmas lista as turmas com disciplina, docente, semestre, turno, modalidade e vagas, com busca e filtro por semestre.
 - **Cadastro de usuários:** a secretaria cadastra aluno, professor ou secretaria pela aba Config.
 
@@ -122,70 +123,102 @@ flask --app app/Espiada.py treinar-modelo
 
 O ganho de AUC sobre as regras é de 0,042 (IC 95%: 0,007 a 0,079). A porcentagem é calibrada: no grupo de maior risco do teste, o modelo previu 38,0% de evasão e 37,0% evadiram. Nos 5000 alunos, a maior chance estimada é 74%, e a média é de 42% no nível alto, 21% no médio e 6% no baixo.
 
+## Estatística
+
+A aba **Estatística** usa `app/models/estatistica.py` (consultas e organização) e `app/models/inferencia.py` (testes estatísticos feitos à mão, sem biblioteca nova). O professor vê só os registros das próprias turmas. A secretaria vê todos e é a única que acessa fatores de evasão e comparação entre grupos, porque eles usam o desfecho e o perfil socioeconômico. O desfecho é lido só por `avaliacao.gabarito()` e nunca volta para a predição.
+
+**Como cada resultado é calculado**
+
+- **Unidade de análise.** Medidas, distribuições e aprovação contam registros (uma matrícula em uma disciplina). Fatores e comparações contam alunos, um por pessoa, para que quem cursou mais disciplinas não pese mais.
+- **Medidas descritivas.** Quartis por interpolação linear (`percentile_cont`), desvio padrão amostral e moda só quando algum valor se repete. Na disciplina em curso vale a nota parcial. Valor atípico é o que fica a mais de 1,5 intervalo interquartil dos quartis.
+- **Aprovação.** As taxas usam só matrículas concluídas, com intervalo de Wilson. O ranking de turmas exige pelo menos 20 matrículas concluídas.
+- **Evolução.** A tendência é a inclinação da regressão linear das médias por semestre. O semestre em curso aparece no gráfico, mas fica fora da conta, porque nota parcial não se compara com nota final. Sem filtro, cada semestre mistura grupos de ingresso; o filtro por período acompanha um mesmo grupo.
+- **Fatores.** Taxa de evasão por grupo com IC 95%, razão de chances (Woolf), qui-quadrado e V de Cramér, que mede o tamanho da associação. Correlações de Pearson e Spearman com a evasão.
+- **Comparação entre grupos.** Diferença de médias com IC 95%, teste t de Welch, Mann-Whitney e d de Cohen. A tela só marca diferença quando os dois testes concordam.
+- **Vários testes de uma vez.** Os valores-p usam a correção de Holm dentro de cada tabela, para reduzir falsos achados.
+- **Avaliação por período e turma.** Usa só os alunos que o modelo não viu no treino. Se os dados mudaram e a divisão não reproduz a AUC guardada, a tela pede um novo treino. Grupo com menos de 10 evasões ou permanências não recebe AUC; hoje isso vale para o 1º período e para todas as turmas.
+- **LLM x regras.** O teste de McNemar compara os dois nos mesmos alunos: binomial exato até 25 discordâncias e qui-quadrado acima disso.
+- **CSV.** Cada tabela sai com ponto e vírgula e vírgula decimal, para abrir direto no Excel em português, e respeita os filtros e o perfil.
+
+**Como ler os resultados.** Associação não prova causa, e os dados são sintéticos. Com 5000 alunos, até um efeito muito pequeno fica estatisticamente significativo, então o tamanho do efeito importa tanto quanto o valor-p. A razão de chances da tabela não é ajustada: morar a mais de 30 km aparece com 1,22 sozinho, mas cai para 1,08 ao considerar nota, frequência e reprovações, porque quem mora longe tende a ter frequência menor.
+
 ## Tecnologias
 
-Python 3.10+, Flask, Werkzeug (hash de senha e erros HTTP), Click (comandos de terminal), PostgreSQL (com o driver `psycopg`) rodando no Docker, Ollama com o cliente `ollama` para Python e HTML, CSS e JavaScript puro nas telas. A fonte Inter é servida pelo próprio sistema. A arquitetura é MVC: os models guardam os dados e as regras, as views são as telas e os controllers recebem os pedidos, conferem login e perfil e devolvem JSON.
+Docker e Docker Compose para rodar o sistema inteiro, Python 3.14 na imagem (3.10+ fora dela), Flask, Waitress (servidor da aplicação no Docker), Werkzeug (hash de senha e erros HTTP), Click (comandos de terminal), PostgreSQL 17 (com o driver `psycopg`), Ollama com o cliente `ollama` para Python e HTML, CSS e JavaScript puro nas telas. A fonte Inter é servida pelo próprio sistema. A arquitetura é MVC: os models guardam os dados e as regras, as views são as telas e os controllers recebem os pedidos, conferem login e perfil e devolvem JSON.
 
 ## Como executar
 
-1. Baixe o código (botão **Code** e depois **Download ZIP**) e extraia em uma pasta. Se preferir, clone o repositório com o git:
+O sistema inteiro roda no Docker: a aplicação (`web-espiada`) e o PostgreSQL (`banco-espiada`). Não é preciso instalar Python nem PostgreSQL.
+
+1. Instale e abra o [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Baixe o código (botão **Code** e depois **Download ZIP**) e extraia em uma pasta. Se preferir, clone o repositório com o git:
 
    ```
    git clone https://github.com/DiegoGDutra/Projeto-Espiada
    ```
 
-2. Abra o terminal na pasta do projeto, a que contém o `requirements.txt`.
-3. Instale as dependências:
+3. (Recomendado) Copie `.env.example` para `.env` e preencha `SECRET_KEY`. Sem ela, reiniciar o container desloga todo mundo.
+4. Abra o terminal na pasta do projeto, a que contém o `docker-compose.yml`, e suba tudo:
 
    ```
-   pip install -r requirements.txt
+   docker compose up -d --build
    ```
 
-   No Windows, se o comando `pip` não for reconhecido, use `py -m pip install -r requirements.txt`. Se quiser, crie antes um ambiente virtual com `python -m venv .venv`.
+   Na primeira vez, o sistema cria as tabelas, importa o dataset, cria os logins e treina o modelo de risco, sozinho e em poucos segundos depois de baixar as imagens. Nas próximas, ele não mexe nos dados que já existem.
 
-4. Suba o banco de dados (PostgreSQL). O jeito mais simples é com o [Docker Desktop](https://www.docker.com/products/docker-desktop/) aberto:
-
-   ```
-   docker compose up -d
-   ```
-
-   Só é preciso rodar uma vez: o container volta sozinho sempre que o Docker inicia (ative no Docker Desktop a opção de iniciar com o Windows e o banco sobe junto com o computador). Quem preferir instalar o PostgreSQL direto no Windows cria um banco e um usuário e informa o endereço na variável de ambiente `DATABASE_URL` (modelo em `.env.example`).
-
-5. Importe o dataset para o banco (só na primeira vez; já cria os logins padrão):
-
-   ```
-   python scripts/importar.py
-   ```
-
-   Depois, treine o modelo de risco (sem ele, o sistema usa só as regras e não mostra a porcentagem):
-
-   ```
-   flask --app app/Espiada.py treinar-modelo
-   ```
-
-6. (Opcional, para o comentário da LLM) Instale o [Ollama](https://ollama.com/download) e baixe o modelo uma vez:
-
-   ```
-   ollama pull qwen3:4b
-   ```
-
-   O Ollama precisa estar aberto quando você gerar uma predição. Sem ele, a predição sai sem o comentário.
-
-7. Inicie o servidor:
-
-   ```
-   python app/Espiada.py
-   ```
-
-   No Windows, também pode ser `py app/Espiada.py`.
-
-8. Abra no navegador:
+5. Abra no navegador:
 
    ```
    http://127.0.0.1:5000
    ```
 
-O banco é um PostgreSQL, no endereço da variável `DATABASE_URL`; sem ela, o sistema usa `postgresql://espiada:espiada@127.0.0.1:5432/espiada`, o do `docker-compose.yml`. As tabelas são criadas automaticamente quando o servidor sobe. Para recriar o banco do zero, rode `docker compose down -v`, `docker compose up -d` e o importador de novo. Para conferir o sistema, rode `python testes/teste_banco.py`, `python testes/teste_api.py`, `python testes/teste_llm.py` e `python testes/teste_modelo.py`: eles precisam do PostgreSQL no ar, mas não do Ollama, e usam esquemas próprios (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`) recriados a cada execução, sem mexer nos dados de verdade.
+Os containers voltam sozinhos sempre que o Docker inicia. Ative no Docker Desktop a opção de iniciar com o Windows para o sistema subir junto com o computador.
+
+**Comandos do dia a dia**
+
+| Para | Comando |
+|---|---|
+| Aplicar uma mudança no código | `docker compose up -d --build` |
+| Ver o log da aplicação | `docker compose logs -f web` |
+| Parar sem apagar nada | `docker compose stop` |
+| Treinar o modelo de novo | `docker compose exec web flask --app app/Espiada.py treinar-modelo` |
+| Recalcular as predições | `docker compose exec web flask --app app/Espiada.py recalcular-predicoes` |
+| Rodar um teste | `docker compose exec web python testes/teste_api.py` |
+| Zerar o banco (**apaga os dados**) | `docker compose down -v` e depois `docker compose up -d --build` |
+
+Os testes são `teste_banco.py`, `teste_api.py`, `teste_llm.py`, `teste_modelo.py` e `teste_estatistica.py`. Eles não precisam do Ollama e usam esquemas próprios do banco (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`, `teste_estatistica`), recriados a cada execução, sem mexer nos dados de verdade.
+
+**A LLM (opcional).** Sem ela, a predição sai normalmente, só que sem o comentário. Por padrão, o container usa o [Ollama](https://ollama.com/download) instalado no computador, que precisa estar aberto e com o modelo baixado:
+
+```
+ollama pull qwen3:4b
+```
+
+No Linux, o Ollama do computador precisa aceitar conexões do Docker (`OLLAMA_HOST=0.0.0.0`). Quem preferir o Ollama também em container coloca `OLLAMA_URL=http://ollama:11434` no `.env` e roda os comandos abaixo. A imagem tem cerca de 3,4 GB comprimidos, além do modelo, e no Docker do Windows uma placa AMD não é aproveitada, então a LLM roda no processador.
+
+```
+docker compose --profile ollama up -d --build
+```
+
+```
+docker compose exec ollama ollama pull qwen3:4b
+```
+
+**Rodar fora do Docker (para desenvolver).** Com Python 3.10+, deixe só o banco no Docker e libere a porta 5000:
+
+```
+docker compose stop web
+```
+
+```
+pip install -r requirements.txt
+```
+
+```
+python app/Espiada.py
+```
+
+Nesse modo, o sistema usa o banco em `127.0.0.1:5432` (ou o endereço da variável `DATABASE_URL`) e o servidor de desenvolvimento do Flask, que recarrega ao salvar o código. Se o banco estiver vazio, rode antes `python scripts/importar.py` e `flask --app app/Espiada.py treinar-modelo`.
 
 ## Acesso ao sistema
 
@@ -197,7 +230,7 @@ O importador cria um login padrão de cada perfil:
 
 Os demais alunos e docentes também ganham login, com a senha padrão do perfil: `aes0002@simpa.test` a `aes5000@simpa.test` (senha `Aluno#2026`) e `docente2@simpa.test` a `docente450@simpa.test` (senha `Professor#2026`).
 
-Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `flask --app app/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, pela rota `POST /api/usuarios` ou pela aba Config. (só secretaria).
+Essas senhas existem apenas para facilitar os testes e devem ser trocadas em qualquer uso real. Outros usuários são cadastrados pelo terminal, com `docker compose exec web flask --app app/Espiada.py criar-usuario fulano@exemplo.com professor "Fulano" --vinculo 2`, pela rota `POST /api/usuarios` ou pela aba Config. (só secretaria).
 
 A senha precisa ter 8 ou mais caracteres, com maiúscula, minúscula, número e caractere especial, e fica guardada no banco apenas como hash. Depois de 5 senhas erradas seguidas, o login fica bloqueado por 15 minutos. A sessão fica num cookie assinado e protegido (`HttpOnly`, `SameSite=Strict`). Em uso real, defina a variável de ambiente `SECRET_KEY`; sem ela, o servidor gera uma chave nova a cada vez que sobe e todo mundo precisa entrar de novo.
 
@@ -205,7 +238,7 @@ A senha precisa ter 8 ou mais caracteres, com maiúscula, minúscula, número e 
 
 O Espiada trata dados acadêmicos e socioeconômicos de alunos, protegidos pela Lei nº 13.709/2018 (LGPD). Por isso o sistema tem a página `/sobre.html`, acessível sem login pelo rodapé de qualquer tela, com as abas Termos de Uso, Privacidade (LGPD), Cookies e Contato.
 
-A política de privacidade descreve os dados coletados, a finalidade, a base legal, as decisões automatizadas (o aluno pode pedir revisão da classificação de risco e saber quais critérios foram usados), o armazenamento e os direitos do titular (artigo 18 da LGPD). Cada perfil recebe só os dados dos alunos que pode ver, e a LLM roda local, sem mandar nada para a nuvem. Os dados enviados à LLM ainda **não passaram por tratamento de acordo com a LGPD** (veja [A LLM](#a-llm)).
+A política de privacidade descreve os dados coletados, a finalidade, a base legal, as decisões automatizadas (o aluno pode pedir revisão da classificação de risco e saber quais critérios foram usados), o armazenamento e os direitos do titular (artigo 18 da LGPD). Cada perfil recebe só os dados dos alunos que pode ver, e a LLM roda local, sem mandar nada para a nuvem. As estatísticas e os CSV trazem só resultados agregados, sem nome nem matrícula; a análise que usa o perfil socioeconômico é só da secretaria. Em grupos pequenos, um agregado ainda pode permitir identificar alguém, e o sistema ainda não define um tamanho mínimo de grupo. Os dados enviados à LLM ainda **não passaram por tratamento de acordo com a LGPD** (veja [A LLM](#a-llm)).
 
 ## Termos de uso e créditos
 
@@ -218,18 +251,22 @@ O código e o conteúdo do Espiada pertencem aos autores. Os componentes de terc
 ```
 Projeto-Espiada/
 ├── requirements.txt                 # dependências
-├── docker-compose.yml               # PostgreSQL de desenvolvimento (docker compose up -d)
-├── .env.example                     # modelo do .env (DATABASE_URL)
+├── docker-compose.yml               # sistema inteiro: aplicação, PostgreSQL e Ollama opcional
+├── Dockerfile                       # imagem da aplicação
+├── .dockerignore                    # lista do que pode entrar na imagem
+├── .env.example                     # modelo do .env (SECRET_KEY e LLM)
 ├── roadmap.md                       # andamento de cada funcionalidade
 ├── dados/                           # dataset sintético em CSV e o dicionário das colunas
 ├── scripts/                         # ferramentas que rodam à parte do sistema
+│   ├── iniciar.py                   # entrada do container: prepara o banco e sobe o servidor
 │   ├── importar.py                  # carrega o dataset no banco e cria os logins
 │   └── ampliar_dados.py             # amplia o dataset de dados/ para 5000 alunos
 ├── testes/
 │   ├── teste_banco.py               # testes das regras do banco
 │   ├── teste_api.py                 # testes das rotas e permissões
 │   ├── teste_llm.py                 # testes da LLM com um Ollama simulado
-│   └── teste_modelo.py              # testes do treinamento e da porcentagem de risco
+│   ├── teste_modelo.py              # testes do treinamento e da porcentagem de risco
+│   └── teste_estatistica.py         # testes das contas, dos totais, das permissões e do CSV
 └── app/                             # o sistema, em MVC
     ├── Espiada.py                   # ponto de entrada: cria o app, registra os controllers, trata erros
     ├── schema.sql                   # tabelas e regras do banco
@@ -243,6 +280,8 @@ Projeto-Espiada/
     │   ├── treino.py                # treina, testa e aprova o modelo de risco
     │   ├── llm.py                   # cliente do Ollama: prompt fixo e resposta validada
     │   ├── avaliacao.py             # compara o risco previsto com o gabarito (matriz de confusão, F1, AUC, IC 95%)
+    │   ├── estatistica.py           # medidas, distribuições, aprovação, evolução, fatores e CSV
+    │   ├── inferencia.py            # testes estatísticos (qui-quadrado, Welch, Mann-Whitney, Holm, McNemar)
     │   └── feedback.py              # comentários do aluno
     ├── controllers/                 # C: rotas HTTP
     │   ├── comum.py                 # leitura de JSON e checagem de perfil
@@ -250,10 +289,11 @@ Projeto-Espiada/
     │   ├── paginas.py               # entrega as telas
     │   ├── academico.py             # cursos, disciplinas, docentes e turmas
     │   ├── alunos.py                # lista, ficha, feedback e predição
-    │   └── predicoes.py             # recálculo em lote e comandos recalcular-predicoes e treinar-modelo
+    │   ├── predicoes.py             # recálculo em lote e comandos recalcular-predicoes e treinar-modelo
+    │   └── estatisticas.py          # rotas de estatística e exportação em CSV
     ├── views/                       # V: telas
     │   ├── login.html               # login
-    │   ├── interface.html           # painel, monitoramento, predições e meu desempenho
+    │   ├── interface.html           # painel, monitoramento, predições, estatística, avaliação e meu desempenho
     │   └── sobre.html               # sobre, equipe, termos, privacidade, cookies e contato
     └── static/fontes/               # fonte Inter e licença
 ```
@@ -293,8 +333,8 @@ flowchart TD
     B -->|não| E["Mensagem de erro"] --> A
     B -->|sim| C{"Perfil do usuário"}
     C -->|aluno| AL["Próprio desempenho<br/>enviar feedback"]
-    C -->|professor| PR["Alunos das turmas que leciona<br/>gera predição, não altera dados"]
-    C -->|secretaria| SE["Visão de todas as turmas<br/>predição, cadastro de usuários"]
+    C -->|professor| PR["Alunos das turmas que leciona<br/>gera predição, vê estatística das próprias turmas,<br/>não altera dados"]
+    C -->|secretaria| SE["Visão de todas as turmas<br/>predição, estatística, avaliação,<br/>cadastro de usuários"]
 ```
 
 ### Predição de risco
@@ -357,6 +397,7 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 - **Estrutura acadêmica:** `GET /api/cursos`, `/api/disciplinas`, `/api/docentes` e `/api/turmas`.
 - **Alunos:** `GET /api/alunos` (lista com indicadores e risco atual), `GET /api/alunos/{matricula}` (ficha com as disciplinas) `POST /api/alunos/{matricula}/feedback` (só o próprio aluno) e `GET` na mesma rota (feedbacks do aluno, para quem pode vê-lo).
 - **Predições:** `POST /api/alunos/{matricula}/predicao` gera e grava uma predição, e `GET` na mesma rota devolve o histórico; `POST /api/predicoes/recalcular` e `GET /api/predicoes/recalculo` cuidam do recálculo em lote, e `GET /api/avaliacao` mede o acerto das predições (só secretaria).
+- **Estatística:** `GET /api/estatisticas` (tudo da aba, com filtros `periodo`, `semestre`, `disciplina` e `turma`), `/api/estatisticas/opcoes`, `/api/estatisticas/descritiva` e `/api/estatisticas/exportar/{tabela}` para professor e secretaria; `/api/estatisticas/evasao` e `/api/estatisticas/avaliacao` só para a secretaria.
 
 ## Limitações conhecidas
 
@@ -364,7 +405,7 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 **A tendência ainda não mostrou ganho.** O modelo calcula a tendência de notas e frequência, mas, em validação cruzada, ela não mudou a AUC (diferença de 0,000; IC 95%: -0,003 a 0,003). O dataset tem um único desfecho por aluno, e todas as evasões são de 2027. Medir a tendência de verdade exige saber quem evadiu em cada semestre, com dados reais.
 
-**Regras e cortes.** As regras seguem como reserva e explicação dos fatores, com pesos definidos à mão. Nelas, morar a mais de 30 km não tem efeito significativo (razão de chances de 1,08; IC 95%: 0,90 a 1,30). Os cortes do modelo (15% e 30%) foram fixados antes do teste e devem ser confirmados com a coordenação, conforme a quantidade de alunos que ela consegue atender.
+**Regras e cortes.** As regras seguem como reserva e explicação dos fatores, com pesos definidos à mão. Nelas, morar a mais de 30 km não tem efeito significativo depois de considerar nota, frequência e reprovações (razão de chances de 1,08; IC 95%: 0,90 a 1,30). Os cortes do modelo (15% e 30%) foram fixados antes do teste e devem ser confirmados com a coordenação, conforme a quantidade de alunos que ela consegue atender.
 
 **A LLM ainda não foi comparada em escala.** Com o modelo treinado em uso, a LLM só escreve o comentário. A comparação da aba Avaliação considera apenas predições feitas sem modelo, e hoje são poucas, então ainda não se sabe se a LLM melhoraria o acerto.
 
@@ -374,9 +415,9 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 
 **Dados que o dataset não tem.** Entrega de atividades não existe no dataset, então não entra no cálculo. Cada período tem 625 alunos, divididos em seções de turma (A, B, C...) de 45 vagas, mas o painel agrupa por período; como todos do mesmo período entraram juntos, turma, período e ano de ingresso dão o mesmo agrupamento.
 
-**Recálculo em memória.** O andamento do recálculo em lote fica na memória do servidor: reiniciar o servidor o zera, e o modo de desenvolvimento do Flask pode interromper o lote ao recarregar o código.
+**Recálculo em memória.** O andamento do recálculo em lote e o bloqueio de login ficam na memória do servidor. Por isso o container roda um único processo com várias threads. Reiniciar o container zera esse estado, e fora do Docker o modo de desenvolvimento do Flask pode interromper o lote ao recarregar o código.
 
-**Uso local.** O servidor roda no modo de desenvolvimento do Flask, sem HTTPS, o que serve para teste, não para produção. O Ollama não tem autenticação: se `OLLAMA_URL` apontar para outra máquina, use só em rede confiável, porque os dados viajam sem criptografia.
+**Uso local.** No Docker, a aplicação roda no Waitress, sem modo debug, e as portas só aceitam conexões do próprio computador. Ainda não há HTTPS, e as senhas padrão e a do banco são de desenvolvimento, então o sistema não está pronto para produção. O Ollama em container foi configurado, mas não foi testado, porque a imagem é grande. O Ollama não tem autenticação: se `OLLAMA_URL` apontar para outra máquina, use só em rede confiável, porque os dados viajam sem criptografia.
 
 ## Próximos passos
 
@@ -387,7 +428,6 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 - Deixar os pesos das regras configuráveis, com rota e tela.
 - Avisar a coordenação sobre alunos em alto risco por WhatsApp ou Telegram.
 - Exportar relatórios em PDF e CSV, por aluno, turma e curso.
-- Mais estatística no sistema: medidas descritivas (média, mediana, desvio padrão, quartis), histogramas e boxplots, taxas de aprovação por disciplina, evolução por semestre, fatores ligados à evasão e comparação entre grupos. O detalhe está na seção Estatística do `roadmap.md`.
 - Mostrar os alunos e o risco de cada turma na aba Turmas, com o professor vendo só as próprias turmas.
 - Permitir a alteração manual de uma predição, sempre com justificativa.
 - Recalcular automaticamente quando chegarem dados novos.

@@ -14,7 +14,7 @@ import secrets
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
-from controllers import academico, alunos, auth, paginas, predicoes
+from controllers import academico, alunos, auth, estatisticas, paginas, predicoes
 from models.banco import ErroModelo, criar_banco
 
 app = Flask(__name__)  # arquivos do front (fonte) ficam em app/static/ e saem em /static/
@@ -22,7 +22,7 @@ app = Flask(__name__)  # arquivos do front (fonte) ficam em app/static/ e saem e
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
 
-for controller in (auth, paginas, academico, alunos, predicoes):
+for controller in (auth, paginas, academico, alunos, predicoes, estatisticas):
     app.register_blueprint(controller.bp)
 
 

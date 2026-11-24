@@ -48,6 +48,10 @@ def buscar(matricula, usuario):
     return achados[0] if achados else None
 
 
+def total():
+    return consultar("SELECT count(*) AS n FROM alunos")[0]["n"]
+
+
 def existe(matricula):
     return bool(consultar("SELECT 1 FROM alunos WHERE codigo_academico = %s", matricula))
 

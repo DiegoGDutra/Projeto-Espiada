@@ -82,6 +82,11 @@ def ativo():
     return linhas[0] | {"pesos": json.loads(linhas[0]["pesos"]), "metricas": json.loads(linhas[0]["metricas"])}
 
 
+def ja_treinado():
+    """Se já houve algum treinamento, aprovado ou não: a subida do container não treina de novo."""
+    return bool(consultar("SELECT 1 FROM modelo_risco LIMIT 1"))
+
+
 def prever(matriculas=None):
     """{matricula: {probabilidade, nivel, modelo_id}} pelo modelo ativo; vazio se não há modelo ou dados do aluno."""
     modelo = ativo()

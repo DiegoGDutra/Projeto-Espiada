@@ -215,6 +215,39 @@ tbody tr:last-child td{border-bottom:none;}
 .roc text{font-size:10.5px; fill:var(--text-soft);}
 .aviso{background:var(--risk-med-bg); color:#7A5414; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
 
+/* Estatística: as duas cores de série passaram no validador de daltonismo; as de risco ficam só para o nível de risco */
+:root{--serie-1:#4F5FD0; --serie-2:#E8592C;}
+.est-cabeca{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+.est-cabeca h3{margin-bottom:0;}
+.est-acoes{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.est-acoes select{border:1px solid var(--border); background:#fff; border-radius:8px; padding:7px 10px; font:inherit; font-size:12.5px; color:var(--text); max-width:100%;}
+.btn-csv{border:1px solid var(--border); background:#fff; border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--navy-800); text-decoration:none; white-space:nowrap;}
+.btn-csv:hover{background:var(--card-bg);}
+.est-grafico{width:100%; display:block; font-family:var(--font);}
+.est-grafico text{font-size:11px; fill:var(--text-soft);}
+.est-grafico text.forte{fill:var(--text); font-weight:600;}
+.est-grafico .grade{stroke:var(--border);}
+.est-grafico .eixo{stroke:#B9BDD0;}
+.est-grafico .alvo{fill:transparent;}
+.est-grafico .alvo:hover{fill:rgba(20,27,77,.06);}
+.est-rolagem{max-height:470px; overflow:auto;}
+.est-rolagem .est-grafico{min-width:620px;}
+#dicaEst{position:fixed; z-index:60; transform:translate(-50%,calc(-100% - 8px)); background:var(--navy-900); color:#fff; font-size:12px; line-height:1.45;
+  padding:6px 10px; border-radius:6px; max-width:280px; pointer-events:none; white-space:pre-line;}
+.est-tabela td,.est-tabela th{white-space:nowrap;}
+.est-tabela tbody td{padding:9px 8px;}
+.est-tabela thead th{padding:0 8px 10px;}
+.est-tabela td.quebra{white-space:normal; min-width:130px;}
+.est-tabela tbody tr{cursor:default;}
+.est-pilha{display:flex; gap:2px; width:120px; height:8px;}
+.est-pilha i{display:block; height:100%; border-radius:2px;}
+.est-nivel{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 0; font-size:12.5px;}
+.est-nivel svg{width:96px; height:12px; flex-shrink:0;}
+.est-nivel svg line{stroke:var(--serie-1); stroke-width:2;}
+.est-nivel svg circle{fill:var(--serie-1);}
+.badge.achado{color:var(--navy-800); background:#E6E8F8;}
+.stat-card .sub{font-size:11.5px; color:var(--text-soft); margin-top:3px;}
+
 /* Modal */
 .overlay{position:fixed; inset:0; background:rgba(10,12,25,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
 .overlay.show{display:flex;}
@@ -296,6 +329,10 @@ tbody tr:last-child td{border-bottom:none;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
       Predições
     </button>
+    <button class="nav-item" data-section="estatistica">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      Estatística
+    </button>
     <button class="nav-item" data-section="avaliacao">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 17v-5M11 17V7M16 17v-8M21 17V4"/></svg>
       Avaliação
@@ -364,6 +401,7 @@ tbody tr:last-child td{border-bottom:none;}
       </select>
     </div>
     <div class="stat-grid" id="statGrid"></div>
+    <div class="stat-grid" id="statDescritiva"></div>
     <div class="two-col">
       <div class="panel">
         <h3 id="graficoTitulo">Distribuição de risco por período</h3>
@@ -416,6 +454,18 @@ tbody tr:last-child td{border-bottom:none;}
         <div id="analiseLLM"></div>
       </div>
     </div>
+  </section>
+
+  <!-- ESTATÍSTICA (professor: só as próprias turmas; secretaria: tudo, mais fatores de evasão e comparação entre grupos) -->
+  <section class="section" id="sec-estatistica">
+    <div class="filters">
+      <select id="estPeriodo" aria-label="Período"><option value="">Todos os períodos</option></select>
+      <select id="estSemestre" aria-label="Semestre"><option value="">Todos os semestres</option></select>
+      <select id="estDisciplina" aria-label="Disciplina"><option value="">Todas as disciplinas</option></select>
+      <select id="estTurma" aria-label="Turma" disabled><option value="">Escolha uma disciplina para filtrar a turma</option></select>
+    </div>
+    <div id="estConteudo"><div class="panel"><p class="vazio">Carregando…</p></div></div>
+    <div id="estEvasao"></div>
   </section>
 
   <!-- AVALIAÇÃO DO MODELO (secretaria): o risco previsto comparado com quem de fato evadiu -->
@@ -495,12 +545,13 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="overlay" id="overlay">
   <div class="modal" id="modal"></div>
 </div>
+<div id="dicaEst" role="tooltip" hidden></div>
 
 <script>
 const alunos = [];
 // o que cada perfil enxerga no menu; a API confere de novo e recusa o resto (403)
-const SECOES = {aluno:["meu"], professor:["painel","monitoramento","predicoes","turmas","relatorios"],
-  secretaria:["painel","monitoramento","predicoes","avaliacao","turmas","relatorios","config"]};
+const SECOES = {aluno:["meu"], professor:["painel","monitoramento","predicoes","estatistica","turmas","relatorios"],
+  secretaria:["painel","monitoramento","predicoes","estatistica","avaliacao","turmas","relatorios","config"]};
 const PERFIL = {aluno:"Aluno", professor:"Professor", secretaria:"Secretaria/coordenação"};
 
 async function api(url, opcoes={}){
@@ -626,6 +677,7 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
       painel:["Painel geral","Visão consolidada do risco de evasão acadêmica"],
       monitoramento:["Monitoramento","Indicadores por aluno — frequência, notas e reprovações"],
       predicoes:["Predições","Classificação de risco gerada a partir dos indicadores monitorados"],
+      estatistica:["Estatística","Medidas, distribuições, aprovação, evolução e fatores ligados à evasão"],
       avaliacao:["Avaliação do modelo","Quanto o risco previsto acerta, comparado com quem de fato evadiu"],
       turmas:["Turmas e cursos","Organização por curso e turma"],
       relatorios:["Relatórios","Exportação de dados para coordenação"],
@@ -634,6 +686,7 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
     document.getElementById("topbarTitle").textContent = t[0];
     document.getElementById("topbarSub").textContent = t[1];
     if(btn.dataset.section==="avaliacao") carregarAvaliacao();  // recalcula a cada abertura: as predições podem ter mudado
+    if(btn.dataset.section==="estatistica") abrirEstatistica();
   });
 });
 
@@ -836,6 +889,7 @@ async function mostrarFicha(matricula, el, resultado=null){
         <div class="stat-card"><div class="lbl">Reprovações</div><div class="num">${a.reprovacoes}</div></div>
         <div class="stat-card"><div class="lbl">Distância do campus</div><div class="num">${a.distancia==null?"—":a.distancia+" km"}</div></div>
       </div>
+      ${evolucaoFicha(a.evolucao, el.clientWidth - (parseFloat(getComputedStyle(el).paddingLeft)*2 || 0))}
       <h4>Histórico de risco</h4>
       ${perfil!=="aluno" ? `<button class="btn" id="fichaPrever">Gerar predição</button>` : ""}
       ${fatores ? `<div style="margin-top:10px">${fatores.map(f=>`
@@ -902,7 +956,7 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
 });
 
 // ---------- avaliação do modelo (regras explicadas no readme.md, seção "Avaliação do modelo de risco") ----------
-let avaliacao = null;
+let avaliacao = null, avaliacaoGrupos = null;
 const pct = v => v==null ? "—" : (v*100).toFixed(1).replace(".",",")+"%";
 const dec = v => v==null ? "—" : v.toFixed(3).replace(".",",");
 const faixa = (ic, f=pct) => ic ? `IC 95%: ${f(ic[0])} a ${f(ic[1])}` : "";
@@ -915,7 +969,10 @@ const METRICAS = [
   ["f1","F1","equilíbrio entre precisão e revocação (média harmônica)"]];
 async function carregarAvaliacao(){
   const el = document.getElementById("avaliacaoConteudo");
-  try{ avaliacao = await api("/api/avaliacao"); renderAvaliacao(); }
+  try{
+    [avaliacao, avaliacaoGrupos] = await Promise.all([api("/api/avaliacao"), api("/api/estatisticas/avaliacao")]);
+    renderAvaliacao();
+  }
   catch(e){ el.innerHTML = `<div class="panel"><p class="erro-msg">Não foi possível avaliar o modelo: ${esc(e.message)}</p></div>`; }
 }
 function graficoRoc(roc, valorAuc){
@@ -969,7 +1026,8 @@ function renderAvaliacao(){
       : l.parcial ? `<p class="aviso">Só ${l.alunos} de ${a.alunos} alunos têm predição da LLM. Eles podem não representar o todo, então o resultado vale apenas para esse grupo.</p>` : ""}
     <div class="table-wrap"><table class="ficha"><thead><tr><th>Mesmos ${l.alunos} alunos</th><th>AUC do nível</th><th>Precisão</th><th>Revocação</th><th>F1</th></tr></thead><tbody>
       ${[["Regras",l.regras],["Regras + LLM",l.llm]].map(([nome,b])=>`<tr><td>${nome}</td><td>${dec(b.auc)}<br><small class="vazio">${faixa(b.auc_ic,dec)}</small></td><td>${pct(b.cortes[corte].precisao)}</td><td>${pct(b.cortes[corte].revocacao)}</td><td>${dec(b.cortes[corte].f1)}</td></tr>`).join("")}
-    </tbody></table></div>`;
+    </tbody></table></div>
+    <p class="note">Teste pareado de McNemar neste corte: só a LLM acertou ${l.teste_pareado[corte].so_a} aluno(s), só as regras acertaram ${l.teste_pareado[corte].so_b}; p = ${valorP(l.teste_pareado[corte].p)}. ${l.amostra_pequena ? "Com tão poucos alunos, este resultado não permite concluir." : l.teste_pareado[corte].p<.05 ? "A diferença entre os dois é estatisticamente detectável nestes alunos." : "Não há evidência de diferença entre os dois nestes alunos."}</p>`;
   document.getElementById("avaliacaoConteudo").innerHTML = `
     ${painelModelo(a.modelo_treinado, corte)}
     <div class="stat-grid">
@@ -997,8 +1055,285 @@ function renderAvaliacao(){
       <p class="note">Atenção à acurácia: como só ${pct(a.taxa_evasao)} evadem, quem "chuta" que ninguém evade já acerta ${pct(a.acuracia_chute)}, sem prever nada. Por isso as medidas que importam aqui são revocação, precisão, F1 e AUC.</p>
       <p class="note">O IC 95% (intervalo de confiança) é a faixa de valores plausíveis para a medida, dada a quantidade de alunos. Ele cobre só a incerteza da amostra: como os dados são sintéticos, não mostra se o modelo funcionaria com alunos reais.</p>
     </div>
+    ${painelAvaliacaoGrupos(avaliacaoGrupos)}
     <div class="panel"><h3>LLM x regras nos mesmos alunos</h3>${comparacao}</div>`;
   document.getElementById("avCorte").addEventListener("change", renderAvaliacao);
+}
+// modelo por período e por turma, só nos alunos do teste; grupo com poucas evasões não recebe AUC
+function painelAvaliacaoGrupos(g){
+  if(!g?.disponivel) return `<div class="panel"><h3>Modelo por período e por turma</h3><p class="vazio">${esc(g?.motivo || "Indisponível.")}</p></div>`;
+  const linha = x => `<tr><td class="quebra">${esc(x.grupo)}</td><td>${x.alunos}</td><td>${x.evasoes}</td><td>${pct(x.taxa)}</td><td>${pct(x.chance_media)}</td>
+    ${x.suficiente ? `<td><b>${dec(x.auc_modelo)}</b><br><small class="vazio">${faixa(x.auc_modelo_ic,dec)}</small></td><td>${dec(x.auc_regras)}</td><td>${pct(x.revocacao)}</td><td>${pct(x.precisao)}</td>`
+      : `<td colspan="4" class="vazio">Menos de ${g.eventos_minimos} evasões ou permanências</td>`}</tr>`;
+  const cabeca = nome => `<thead><tr><th>${nome}</th><th>Alunos</th><th>Evasões</th><th>Evasão real</th><th>Chance média</th><th>AUC modelo</th><th>AUC regras</th><th>Revocação</th><th>Precisão</th></tr></thead>`;
+  const t = g.por_turma;
+  return `<div class="panel">
+    <h3>Modelo por período e por turma</h3>
+    <p class="vazio" style="margin-bottom:12px">Versão ${g.modelo_id}, medida só nos ${g.alunos_teste} alunos que ela não viu no treino. Revocação e precisão contam médio ou alto como "previu evasão".</p>
+    <div class="table-wrap"><table class="ficha est-tabela">${cabeca("Período")}<tbody>${g.por_periodo.map(linha).join("")}</tbody></table></div>
+    <h4 style="font-size:13.5px;margin:18px 0 8px">Turmas do semestre em curso</h4>
+    <p class="aviso">${t.suficientes===0 ? `Nenhuma das ${t.total} turmas tem evasões suficientes para calcular a AUC: a maior reúne ${t.maior_turma} alunos do teste. Use estas linhas só como contagem, sem comparar o acerto entre turmas.` : `${t.suficientes} de ${t.total} turmas têm evasões suficientes para calcular a AUC.`}</p>
+    <div class="table-wrap"><table class="ficha est-tabela">${cabeca("10 turmas com mais evasões no teste")}<tbody>${t.linhas.map(linha).join("")}</tbody></table></div>
+  </div>`;
+}
+
+// ---------- estatística (escolhas de cada cálculo no readme.md, seção "Estatística") ----------
+const num = (v, casas=1) => v==null ? "—" : Number(v).toFixed(casas).replace(".",",");
+const inteiro = v => v==null ? "—" : Number(v).toLocaleString("pt-BR");
+const valorP = p => p==null ? "—" : p<.001 ? "< 0,001" : num(p,3);
+const NOME_VARIAVEL = {nota:"Nota", frequencia:"Frequência"};
+let estOpcoes = null, estDados = null, estCarregado = false, estPedido = 0;
+
+// balão dos gráficos de estatística (aba e ficha do aluno)
+const dicaEst = document.getElementById("dicaEst");
+document.addEventListener("mouseover", e=>{
+  const alvo = e.target.closest?.(".est-grafico [data-dica]");
+  if(!alvo){ dicaEst.hidden = true; return; }
+  const r = alvo.getBoundingClientRect();
+  dicaEst.textContent = alvo.dataset.dica;
+  dicaEst.style.left = Math.min(innerWidth-150, Math.max(150, r.left + r.width/2)) + "px";
+  dicaEst.style.top = Math.max(70, e.clientY) + "px";
+  dicaEst.hidden = false;
+});
+
+const filtrosEst = () => {
+  const q = new URLSearchParams();
+  [["periodo","estPeriodo"],["semestre","estSemestre"],["disciplina","estDisciplina"],["turma","estTurma"]].forEach(([c,id])=>{
+    const v = document.getElementById(id).value; if(v) q.set(c, v);
+  });
+  const s = q.toString(); return s ? "?"+s : "";
+};
+const linkCsv = (tabela, filtros="") => `<a class="btn-csv" href="/api/estatisticas/exportar/${tabela}${filtros}" download>Exportar CSV</a>`;
+
+async function abrirEstatistica(){
+  if(estCarregado) return;
+  estCarregado = true;
+  try{
+    estOpcoes = await api("/api/estatisticas/opcoes");
+    estOpcoes.periodos.forEach(p=>document.getElementById("estPeriodo").add(new Option(`${p}º período`, p)));
+    estOpcoes.semestres.forEach(s=>document.getElementById("estSemestre").add(new Option(s, s)));
+    estOpcoes.disciplinas.forEach(d=>document.getElementById("estDisciplina").add(new Option(d.nome, d.id)));
+    carregarEstatistica();
+    if(perfil==="secretaria") carregarEvasao();
+  }catch(err){
+    estCarregado = false;
+    document.getElementById("estConteudo").innerHTML = `<div class="panel"><p class="erro-msg">${esc(err.message)}</p></div>`;
+  }
+}
+// a turma depende da disciplina (são quase 3000 turmas) e do semestre escolhidos
+function preencherTurmasEst(){
+  const sel = document.getElementById("estTurma"), disc = document.getElementById("estDisciplina").value;
+  const sem = document.getElementById("estSemestre").value, antes = sel.value;
+  sel.innerHTML = `<option value="">${disc ? "Todas as turmas" : "Escolha uma disciplina para filtrar a turma"}</option>`;
+  sel.disabled = !disc;
+  if(!disc) return;
+  estOpcoes.turmas.filter(t=>String(t.disciplina_id)===disc && (!sem || t.semestre===sem)).forEach(t=>sel.add(new Option(t.codigo, t.id)));
+  if([...sel.options].some(o=>o.value===antes)) sel.value = antes;
+}
+async function carregarEstatistica(){
+  const pedido = ++estPedido, filtros = filtrosEst(), el = document.getElementById("estConteudo");
+  el.style.opacity = ".55";
+  try{
+    const dados = await api("/api/estatisticas"+filtros);
+    if(pedido!==estPedido) return;  // o usuário já trocou o filtro: esta resposta ficou velha
+    estDados = dados; renderEstatistica(filtros);
+  }catch(err){ if(pedido===estPedido) el.innerHTML = `<div class="panel"><p class="erro-msg">${esc(err.message)}</p></div>`; }
+  finally{ if(pedido===estPedido) el.style.opacity = ""; }
+}
+["estPeriodo","estSemestre","estDisciplina","estTurma"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{
+  if(id!=="estTurma") preencherTurmasEst();
+  carregarEstatistica();
+}));
+
+function tabelaDescritiva(d){
+  const linhas = Object.keys(NOME_VARIAVEL).filter(v=>d[v]).map(v=>{ const m = d[v]; return `<tr><td><b>${NOME_VARIAVEL[v]}</b></td>
+    <td>${inteiro(m.n)}</td><td>${num(m.media,2)}</td><td>${num(m.mediana,2)}</td><td>${num(m.moda)}</td><td>${num(m.desvio,2)}</td>
+    <td>${num(m.minimo)}</td><td>${num(m.q1,2)}</td><td>${num(m.q3,2)}</td><td>${num(m.maximo)}</td><td>${inteiro(m.atipicos)}</td></tr>`; }).join("");
+  return `<div class="table-wrap"><table class="est-tabela"><thead><tr><th>Variável</th><th>Registros</th><th>Média</th><th>Mediana</th><th>Moda</th><th>Desvio padrão</th><th>Mínimo</th><th>1º quartil</th><th>3º quartil</th><th>Máximo</th><th>Atípicos</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+}
+// largura real do painel: o SVG é desenhado nela para o texto não encolher no celular nem crescer no monitor
+const larguraEst = () => { const w = document.getElementById("estConteudo").clientWidth; return w ? Math.max(300, w-46) : 620; };
+function graficoHistograma(faixas, nome, medida, W=520){
+  const H=230, m={l:48,r:10,t:22,b:34}, largura=(W-m.l-m.r)/faixas.length, maior=Math.max(1,...faixas.map(f=>f.n));
+  const y = v => H-m.b-(v/maior)*(H-m.t-m.b), x = v => m.l + v/100*(W-m.l-m.r);
+  const total = faixas.reduce((s,f)=>s+f.n,0);
+  const grade = [0,.5,1].map(f=>`<line class="${f?"grade":"eixo"}" x1="${m.l}" x2="${W-m.r}" y1="${y(maior*f)}" y2="${y(maior*f)}"/><text x="${m.l-6}" y="${y(maior*f)+4}" text-anchor="end">${inteiro(Math.round(maior*f))}</text>`).join("");
+  const barras = faixas.map((f,i)=>{
+    const bx = m.l+i*largura+1, bw = largura-2, by = y(f.n), h = H-m.b-by, r = Math.min(4,h,bw/2);
+    return (f.n ? `<path fill="var(--serie-1)" d="M${bx} ${H-m.b}V${by+r}Q${bx} ${by} ${bx+r} ${by}H${bx+bw-r}Q${bx+bw} ${by} ${bx+bw} ${by+r}V${H-m.b}Z"/>` : "")
+      + `<rect class="alvo" x="${m.l+i*largura}" y="${m.t}" width="${largura}" height="${H-m.t-m.b}" data-dica="${nome} de ${f.de} a ${f.ate}\n${inteiro(f.n)} registros (${pct(total?f.n/total:0)})"/>`;
+  }).join("");
+  const eixoX = [0,25,50,75,100].map(v=>`<text x="${x(v)}" y="${H-m.b+16}" text-anchor="middle">${v}</text>`).join("");
+  const mediana = medida ? `<line x1="${x(medida.mediana)}" x2="${x(medida.mediana)}" y1="${m.t-4}" y2="${H-m.b}" stroke="var(--navy-900)" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>
+    <text class="forte" x="${x(medida.mediana)}" y="${m.t-8}" text-anchor="${medida.mediana>70?"end":"middle"}">mediana ${num(medida.mediana)}</text>` : "";
+  return `<svg class="est-grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Histograma de ${nome}, ${inteiro(total)} registros${medida?`, mediana ${num(medida.mediana)}`:""}">${grade}${barras}${eixoX}${mediana}
+    <text x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">${nome} (faixas de 5 pontos)</text></svg>`;
+}
+function graficoBoxplot(linhas, rotulo){
+  const W=760, passo=28, m={l:230,r:18,t:24,b:10}, H=m.t+m.b+linhas.length*passo, x = v => m.l + v/100*(W-m.l-m.r);
+  const eixos = [0,25,50,75,100].map(v=>`<line class="grade" x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H-m.b}"/><text x="${x(v)}" y="${m.t-8}" text-anchor="middle">${v}</text>`).join("");
+  const caixas = linhas.map((l,i)=>{
+    const c = m.t+i*passo+passo/2, nome = rotulo(l.grupo), curto = nome.length>34 ? nome.slice(0,33)+"…" : nome;
+    return `<text x="${m.l-10}" y="${c+4}" text-anchor="end"><title>${esc(nome)}</title>${esc(curto)}</text>
+      <line x1="${x(l.bigode_inf)}" x2="${x(l.bigode_sup)}" y1="${c}" y2="${c}" stroke="var(--text-soft)" stroke-width="1.5"/>
+      <line x1="${x(l.bigode_inf)}" x2="${x(l.bigode_inf)}" y1="${c-5}" y2="${c+5}" stroke="var(--text-soft)" stroke-width="1.5"/>
+      <line x1="${x(l.bigode_sup)}" x2="${x(l.bigode_sup)}" y1="${c-5}" y2="${c+5}" stroke="var(--text-soft)" stroke-width="1.5"/>
+      <rect x="${x(l.q1)}" y="${c-8}" width="${Math.max(1,x(l.q3)-x(l.q1))}" height="16" rx="3" fill="var(--serie-1)" fill-opacity=".28" stroke="var(--serie-1)" stroke-width="1.5"/>
+      <line x1="${x(l.mediana)}" x2="${x(l.mediana)}" y1="${c-8}" y2="${c+8}" stroke="var(--navy-900)" stroke-width="2.5"/>
+      <rect class="alvo" x="0" y="${c-passo/2}" width="${W}" height="${passo}" data-dica="${esc(nome)}\nMediana ${num(l.mediana)} · quartis ${num(l.q1)} a ${num(l.q3)}\nBigodes ${num(l.bigode_inf)} a ${num(l.bigode_sup)} · ${inteiro(l.atipicos)} atípicos\n${inteiro(l.n)} registros"/>`;
+  }).join("");
+  return `<svg class="est-grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Boxplot por grupo, com ${linhas.length} grupos">${eixos}${caixas}</svg>`;
+}
+function graficoLinha(pontos, H=250, W=620){
+  const m={l:40,r:112,t:16,b:30}, series=[["nota","Nota","var(--serie-1)"],["frequencia","Frequência","var(--serie-2)"]];
+  const valores = pontos.flatMap(p=>[p.nota,p.frequencia]).filter(v=>v!=null);
+  const min = Math.max(0, Math.floor((Math.min(...valores)-3)/10)*10), max = Math.min(100, Math.ceil((Math.max(...valores)+3)/10)*10);
+  const x = i => m.l + (pontos.length>1 ? i/(pontos.length-1) : .5)*(W-m.l-m.r), y = v => H-m.b-(v-min)/((max-min)||1)*(H-m.t-m.b);
+  const grade = Array.from({length:(max-min)/10+1},(_,i)=>min+i*10).map(v=>`<line class="${v===min?"eixo":"grade"}" x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`).join("");
+  const saltoX = Math.max(1, Math.ceil(pontos.length*48/(W-m.l-m.r)));  // em tela estreita, mostra um semestre sim, outro não
+  const marcasX = pontos.map((p,i)=>i%saltoX===0 ? `<text x="${x(i)}" y="${H-m.b+18}" text-anchor="middle">${esc(p.semestre)}</text>` : "").join("");
+  const desenho = series.map(([c,nome,cor])=>{
+    const validos = pontos.map((p,i)=>({p,i})).filter(o=>o.p[c]!=null), fechados = validos.filter(o=>!o.p.parcial), abertos = validos.filter(o=>o.p.parcial);
+    const linha = fechados.map(o=>`${x(o.i)},${y(o.p[c])}`).join(" ");
+    const ponte = fechados.length && abertos.length ? `<line x1="${x(fechados.at(-1).i)}" y1="${y(fechados.at(-1).p[c])}" x2="${x(abertos[0].i)}" y2="${y(abertos[0].p[c])}" stroke="${cor}" stroke-width="2" stroke-dasharray="4 4"/>` : "";
+    const ultimo = validos.at(-1);
+    return `<polyline points="${linha}" fill="none" stroke="${cor}" stroke-width="2"/>${ponte}
+      ${validos.map(o=>`<circle cx="${x(o.i)}" cy="${y(o.p[c])}" r="4" fill="${o.p.parcial?"#fff":cor}" stroke="${o.p.parcial?cor:"#fff"}" stroke-width="2"/>`).join("")}
+      ${ultimo ? `<text class="forte" x="${x(ultimo.i)+9}" y="${y(ultimo.p[c])+4}">${nome} ${num(ultimo.p[c])}</text>` : ""}`;
+  }).join("");
+  const faixa = (W-m.l-m.r)/Math.max(1,pontos.length-1);
+  const alvos = pontos.map((p,i)=>`<rect class="alvo" x="${x(i)-faixa/2}" y="${m.t}" width="${faixa}" height="${H-m.t-m.b}" data-dica="${esc(p.semestre)}${p.parcial?" (em curso, nota parcial)":""}\nNota ${num(p.nota)} · Frequência ${num(p.frequencia)}%"/>`).join("");
+  return `<svg class="est-grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução de nota e frequência em ${pontos.length} semestres">${grade}${marcasX}${desenho}${alvos}</svg>
+    <div class="legenda"><span><i style="background:var(--serie-1)"></i>Nota</span><span><i style="background:var(--serie-2)"></i>Frequência (%)</span>${pontos.some(p=>p.parcial)?`<span>Ponto vazado: semestre em curso, fora da tendência</span>`:""}</div>`;
+}
+const textoTendencia = v => v==null ? "—" : `${v>0?"+":""}${num(v,2)}`;
+function evolucaoFicha(ev, largura){
+  if(!ev || ev.pontos.length<2) return "";
+  return `<h4>Evolução por semestre</h4>${graficoLinha(ev.pontos, 210, largura ? Math.max(300, largura-4) : 620)}
+    <p class="vazio" style="margin-top:8px">Tendência por semestre concluído: nota ${textoTendencia(ev.tendencia.nota)} pontos, frequência ${textoTendencia(ev.tendencia.frequencia)} pontos percentuais.</p>`;
+}
+function tabelaAprovacao(linhas){
+  return `<div class="table-wrap"><table class="est-tabela"><thead><tr><th>Grupo</th><th>Concluídas</th><th>Aprovação</th><th>Reprovação</th><th>IC 95%</th><th>Por nota</th><th>Por frequência</th><th>Composição</th></tr></thead><tbody>
+    ${linhas.map(l=>`<tr><td class="quebra">${esc(l.grupo)}</td><td>${inteiro(l.concluidas)}</td><td>${pct(l.taxa_aprovacao)}</td><td><b>${pct(l.taxa_reprovacao)}</b></td>
+      <td>${l.ic_reprovacao ? `${pct(l.ic_reprovacao[0])} a ${pct(l.ic_reprovacao[1])}` : "—"}</td><td>${pct(l.taxa_reprovacao_nota)}</td><td>${pct(l.taxa_reprovacao_frequencia)}</td>
+      <td><div class="est-pilha" role="img" aria-label="Reprovação por nota ${pct(l.taxa_reprovacao_nota)}, por frequência ${pct(l.taxa_reprovacao_frequencia)}"><i style="width:${(l.taxa_reprovacao_nota||0)*100}%;background:var(--serie-1)"></i><i style="width:${(l.taxa_reprovacao_frequencia||0)*100}%;background:var(--serie-2)"></i></div></td></tr>`).join("") || `<tr><td colspan="8" class="vazio">Nenhuma matrícula concluída neste filtro.</td></tr>`}
+  </tbody></table></div>`;
+}
+function renderAprovacao(){
+  const recorte = document.getElementById("estRecorte").value, a = estDados.aprovacao;
+  const t = a.turma, aviso = recorte==="turma" ? `<p class="vazio" style="margin-bottom:10px">As ${t.linhas.length} turmas que mais reprovam, entre as ${inteiro(t.aptas)} com pelo menos ${t.minimo} matrículas concluídas. O CSV traz todas as ${inteiro(t.total)}.</p>` : "";
+  document.getElementById("estAprovacao").innerHTML = aviso + tabelaAprovacao(recorte==="turma" ? t.linhas : a[recorte]);
+}
+function renderBoxplot(){
+  const v = document.getElementById("estBoxVar").value, g = document.getElementById("estBoxGrupo").value;
+  document.getElementById("estBoxplot").innerHTML = estDados.boxplots[v][g].length
+    ? graficoBoxplot(estDados.boxplots[v][g], x => g==="periodo" ? `${x}º período` : x) : `<p class="vazio">Sem dados neste filtro.</p>`;
+}
+function renderEstatistica(filtros){
+  const d = estDados, el = document.getElementById("estConteudo");
+  if(!d.descritiva.nota && !d.descritiva.frequencia){
+    el.innerHTML = `<div class="panel"><p class="vazio">Nenhum registro encontrado para esta combinação de filtros.</p></div>`; return;
+  }
+  const antes = {r:document.getElementById("estRecorte")?.value, v:document.getElementById("estBoxVar")?.value, g:document.getElementById("estBoxGrupo")?.value};
+  const ev = d.evolucao;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="est-cabeca"><h3>Medidas descritivas</h3>${linkCsv("descritiva", filtros)}</div>
+      ${tabelaDescritiva(d.descritiva)}
+      <p class="note">Cada registro é uma matrícula em uma disciplina; na disciplina em curso vale a nota parcial. Atípicos ficam a mais de 1,5 intervalo interquartil dos quartis. A moda em 100 vem do limite da escala: notas e frequências não passam de 100.</p>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Distribuições</h3>${linkCsv("distribuicao", filtros)}</div>
+      <div class="two-col" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+        <div>${graficoHistograma(d.histogramas.nota, "Nota", d.descritiva.nota, Math.min(520, larguraEst()))}</div>
+        <div>${graficoHistograma(d.histogramas.frequencia, "Frequência", d.descritiva.frequencia, Math.min(520, larguraEst()))}</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Boxplot</h3><div class="est-acoes">
+        <select id="estBoxVar" aria-label="Variável do boxplot"><option value="nota">Nota</option><option value="frequencia">Frequência</option></select>
+        <select id="estBoxGrupo" aria-label="Agrupar boxplot por"><option value="periodo">Por período</option><option value="disciplina">Por disciplina</option></select>
+      </div></div>
+      <div class="est-rolagem" id="estBoxplot"></div>
+      <p class="note">A caixa vai do 1º ao 3º quartil, o traço escuro é a mediana e os bigodes alcançam o valor mais distante dentro de 1,5 intervalo interquartil.</p>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Aprovação e reprovação</h3><div class="est-acoes">
+        <select id="estRecorte" aria-label="Recorte da aprovação"><option value="disciplina">Por disciplina</option><option value="turma">Por turma</option><option value="semestre">Por semestre</option></select>
+        ${linkCsv("aprovacao", filtros)}
+      </div></div>
+      <div id="estAprovacao"></div>
+      <div class="legenda" style="margin-top:10px"><span><i style="background:var(--serie-1)"></i>Reprovação por nota</span><span><i style="background:var(--serie-2)"></i>Reprovação por frequência</span></div>
+      <p class="note">As taxas contam só matrículas concluídas; quem está em curso fica de fora. O IC 95% é o intervalo de Wilson da taxa de reprovação.</p>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Evolução ao longo dos semestres</h3>${linkCsv("evolucao", filtros)}</div>
+      ${ev.pontos.length>1 ? graficoLinha(ev.pontos, 270, larguraEst()) : `<p class="vazio">Este filtro tem só um semestre: não há evolução para mostrar.</p>`}
+      <p class="note">Tendência por semestre concluído (inclinação da regressão linear): nota ${textoTendencia(ev.tendencia.nota)} pontos e frequência ${textoTendencia(ev.tendencia.frequencia)} pontos percentuais. Sem filtro, cada semestre reúne turmas de ingresso diferentes; filtre por período para acompanhar um mesmo grupo de alunos.</p>
+    </div>`;
+  if(antes.r){ document.getElementById("estRecorte").value = antes.r; document.getElementById("estBoxVar").value = antes.v; document.getElementById("estBoxGrupo").value = antes.g; }
+  renderBoxplot(); renderAprovacao();
+  ["estBoxVar","estBoxGrupo"].forEach(id=>document.getElementById(id).addEventListener("change", renderBoxplot));
+  document.getElementById("estRecorte").addEventListener("change", renderAprovacao);
+}
+
+// fatores e comparação entre grupos: visão da instituição, só secretaria; não dependem dos filtros acima
+async function carregarEvasao(){
+  const el = document.getElementById("estEvasao");
+  el.innerHTML = `<div class="panel"><p class="vazio">Calculando fatores de evasão…</p></div>`;
+  try{ renderEvasao(await api("/api/estatisticas/evasao")); }
+  catch(err){ el.innerHTML = `<div class="panel"><p class="erro-msg">${esc(err.message)}</p></div>`; }
+}
+const intensidade = r => { const a = Math.abs(r); return a<.1 ? "muito fraca" : a<.3 ? "fraca" : a<.5 ? "moderada" : "forte"; };
+const efeitoD = d => { const a = Math.abs(d); return a<.2 ? "desprezível" : a<.5 ? "pequeno" : a<.8 ? "médio" : "grande"; };
+const selo = (p, sim="Detectada", nao="Sem evidência") => `<span class="badge ${p<.05?"achado":"neutro"}">${p<.05?sim:nao}</span>`;
+function nivelFator(g, maior){
+  const x = v => 4 + v/maior*88;
+  return `<div class="est-nivel"><span>${esc(g.nivel)}: <b>${pct(g.taxa)}</b> <span class="vazio">(${g.evasoes}/${inteiro(g.alunos)})</span></span>
+    <svg viewBox="0 0 96 12" role="img" aria-label="IC 95% de ${pct(g.ic[0])} a ${pct(g.ic[1])}"><title>IC 95%: ${pct(g.ic[0])} a ${pct(g.ic[1])}</title><line x1="${x(g.ic[0])}" x2="${x(g.ic[1])}" y1="6" y2="6"/><circle cx="${x(g.taxa)}" cy="6" r="3.5"/></svg></div>`;
+}
+function renderEvasao(a){
+  const maior = Math.max(...a.fatores.flatMap(f=>f.grupos.map(g=>g.ic[1])), .01);
+  document.getElementById("estEvasao").innerHTML = `
+    <div class="panel">
+      <div class="est-cabeca"><h3>Fatores ligados à evasão</h3>${linkCsv("fatores")}</div>
+      <p class="vazio" style="margin-bottom:12px">Taxa geral: ${pct(a.taxa)} (${a.evasoes} de ${inteiro(a.alunos)} alunos). Cada aluno conta uma vez. O traço mostra o IC 95% da taxa de evasão do grupo.</p>
+      <div class="table-wrap"><table class="est-tabela"><thead><tr><th>Fator</th><th>Evasão por grupo</th><th>Razão de chances</th><th>V de Cramér</th><th>p (Holm)</th><th>Associação</th></tr></thead><tbody>
+        ${a.fatores.map(f=>`<tr><td class="quebra"><b>${esc(f.nome)}</b></td><td style="min-width:300px">${f.grupos.map(g=>nivelFator(g,maior)).join("")}</td>
+          <td>${f.razao_chances ? `${num(f.razao_chances.valor,2)}<br><small class="vazio">${num(f.razao_chances.ic[0],2)} a ${num(f.razao_chances.ic[1],2)}</small>` : "—"}</td>
+          <td>${f.teste ? num(f.teste.v_cramer,3) : "—"}</td><td>${f.teste ? valorP(f.teste.p_holm) : "—"}</td><td>${f.teste ? selo(f.teste.p_holm) : "—"}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="note">A razão de chances compara o primeiro grupo com o segundo, sem ajustar pelos outros fatores. O V de Cramér mede o tamanho da associação (de 0 a 1). A associação vem do teste qui-quadrado, com valor-p corrigido por Holm porque vários testes são feitos de uma vez; o intervalo da razão de chances não tem essa correção e pode excluir o 1 mesmo sem associação detectada. Reprovações se acumulam com o tempo, então parte desse efeito vem do período do aluno. Associação não prova causa, e os dados são sintéticos.</p>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Correlação com a evasão</h3>${linkCsv("correlacoes")}</div>
+      <div class="table-wrap"><table class="est-tabela"><thead><tr><th>Variável</th><th>Alunos</th><th>Pearson (r)</th><th>Spearman (ρ)</th><th>p (Holm)</th><th>Intensidade</th></tr></thead><tbody>
+        ${a.correlacoes.map(c=>`<tr><td>${esc(c.nome)}</td><td>${inteiro(c.n)}</td><td>${num(c.pearson,3)}</td><td>${num(c.spearman,3)}</td><td>${valorP(c.pearson_p_holm)}</td><td>${c.pearson==null?"—":intensidade(c.pearson)}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="note">Valor positivo: quanto maior a variável, mais evasão. Com 5000 alunos, até uma correlação muito fraca fica estatisticamente significativa; por isso, olhe a intensidade junto com o valor-p.</p>
+    </div>
+    <div class="panel">
+      <div class="est-cabeca"><h3>Comparação entre grupos</h3>${linkCsv("comparacoes")}</div>
+      <div class="table-wrap"><table class="est-tabela"><thead><tr><th>Grupos</th><th>Variável</th><th>Médias</th><th>Diferença (IC 95%)</th><th>d de Cohen</th><th>p Welch</th><th>p Mann-Whitney</th><th>Conclusão</th></tr></thead><tbody>
+        ${a.comparacoes.map(c=>`<tr><td class="quebra"><b>${esc(c.fator)}</b><br><small class="vazio">${esc(c.grupo_a)} x ${esc(c.grupo_b)}</small></td><td>${esc(c.variavel)}</td>
+          <td>${num(c.media_a,2)} x ${num(c.media_b,2)}</td><td>${num(c.diferenca,2)}<br><small class="vazio">${num(c.ic[0],2)} a ${num(c.ic[1],2)}</small></td>
+          <td>${num(c.d_cohen,3)} <small class="vazio">${efeitoD(c.d_cohen)}</small></td><td>${valorP(c.p_welch_holm)}</td><td>${valorP(c.p_mann_whitney_holm)}</td><td>${selo(Math.max(c.p_welch_holm,c.p_mann_whitney_holm))}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="note">A diferença é a média do primeiro grupo menos a do segundo, por aluno. O teste de Welch compara as médias e o de Mann-Whitney não supõe distribuição normal; a conclusão só marca diferença quando os dois concordam, já com a correção de Holm.</p>
+    </div>`;
+}
+// cartões do Painel: seguem o filtro de período
+let descritivaPedido = 0;
+async function renderDescritivaPainel(){
+  const el = document.getElementById("statDescritiva"), periodo = document.getElementById("painelTurma").value, pedido = ++descritivaPedido;
+  try{
+    const d = await api("/api/estatisticas/descritiva" + (periodo ? `?periodo=${periodo}` : ""));
+    if(pedido!==descritivaPedido) return;
+    const cartao = (lbl, valor, sub) => `<div class="stat-card"><div class="lbl">${lbl}</div><div class="num">${valor}</div><div class="sub">${sub}</div></div>`;
+    const n = d.nota, f = d.frequencia;
+    el.innerHTML = !n || !f ? "" : cartao("Nota média", num(n.media), `desvio padrão ${num(n.desvio)}`) + cartao("Nota mediana", num(n.mediana), `quartis ${num(n.q1)} a ${num(n.q3)}`)
+      + cartao("Frequência média", num(f.media)+"%", `desvio padrão ${num(f.desvio)}`) + cartao("Frequência mediana", num(f.mediana)+"%", `quartis ${num(f.q1)} a ${num(f.q3)}`);
+  }catch{ if(pedido===descritivaPedido) el.innerHTML = ""; }
 }
 
 Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
@@ -1012,7 +1347,7 @@ Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   if(perfil==="aluno"){  // aluno só recebe ele mesmo
     minhaMatricula = lista[0].matricula;
     mostrarFicha(minhaMatricula, document.getElementById("minhaFicha")); mostrarFeedbacks();
-  }else carregarTurmas();
+  }else{ carregarTurmas(); renderDescritivaPainel(); }
   if(perfil==="secretaria") acompanharRecalculo();  // retoma o andamento se já houver um recálculo rodando
 });
 ["searchInput","filterTurma","filterRisco"].forEach(id=>{
@@ -1020,6 +1355,7 @@ Promise.all([api("/api/sessao"), api("/api/alunos")]).then(([eu, lista])=>{
   document.getElementById(id).addEventListener("change",renderTable);
 });
 ["painelTurma","painelGrafico"].forEach(id=>document.getElementById(id).addEventListener("change",renderPainel));
+document.getElementById("painelTurma").addEventListener("change", renderDescritivaPainel);
 </script>
 </body>
 </html>

@@ -6,36 +6,36 @@ A documentação para pessoas fica no `readme.md`; aqui ficam só comandos, regr
 ## O projeto
 
 Sistema web de monitoramento e predição de risco de evasão acadêmica (projeto de faculdade, Grupo 05).
-Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados 100% sintéticos (5000 alunos).
+Flask + PostgreSQL, tudo no Docker, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados 100% sintéticos (5000 alunos).
 
 ## Comandos (Windows, na raiz do projeto)
 
-- Banco: `docker compose up -d` (container `banco-espiada`, volume `espiada_dados`, porta 5432 só em 127.0.0.1)
-- Dependências: `.venv\Scripts\python -m pip install -r requirements.txt`
-- Importar dados (só com o banco vazio): `.venv\Scripts\python scripts/importar.py`
-- Servidor: `.venv\Scripts\python app/Espiada.py` → http://127.0.0.1:5000
-- Treinar o modelo de risco (depois de importar): `flask --app app/Espiada.py treinar-modelo`
-- Recálculo em lote: `flask --app app/Espiada.py recalcular-predicoes` (`--forcar` reanalisa todos)
-- Zerar o banco (apaga os dados): `docker compose down -v` e depois `up -d` + importar
+- Sistema inteiro: `docker compose up -d --build` → http://127.0.0.1:5000 (containers `web-espiada` e `banco-espiada`, volume `espiada_dados`, portas só em 127.0.0.1). A 1ª subida importa e treina sozinha (`scripts/iniciar.py`). Mudou o código? Rode de novo com `--build`.
+- Log: `docker compose logs -f web`
+- Treinar o modelo de risco de novo: `docker compose exec web flask --app app/Espiada.py treinar-modelo`
+- Recálculo em lote: `docker compose exec web flask --app app/Espiada.py recalcular-predicoes` (`--forcar` reanalisa todos)
+- Zerar o banco (apaga os dados): `docker compose down -v` e depois `up -d --build`
+- Fora do Docker (desenvolvimento): `docker compose stop web`, `.venv\Scripts\python -m pip install -r requirements.txt` e `.venv\Scripts\python app/Espiada.py`
 
 ## Testes
 
 ```
-.venv\Scripts\python testes/teste_banco.py   # < 1 s
-.venv\Scripts\python testes/teste_api.py     # ~1,5 min
-.venv\Scripts\python testes/teste_llm.py     # ~2 min
-.venv\Scripts\python testes/teste_modelo.py  # ~20 s
+docker compose exec web python testes/teste_banco.py        # < 1 s
+docker compose exec web python testes/teste_api.py          # ~1 min
+docker compose exec web python testes/teste_llm.py          # ~1 min
+docker compose exec web python testes/teste_modelo.py       # ~15 s
+docker compose exec web python testes/teste_estatistica.py  # ~20 s
 ```
 
 - Precisam do PostgreSQL no ar; não precisam do Ollama (a LLM é simulada).
-- Cada teste usa um esquema próprio (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`), recriado a cada execução. Nunca rode testes no esquema `public`.
-- Os testes não usam framework: são scripts com `assert`. Rode os quatro depois de mexer em models, controllers ou `schema.sql`.
+- Cada teste usa um esquema próprio (`teste_banco`, `teste_api`, `teste_llm`, `teste_modelo`, `teste_estatistica`), recriado a cada execução. Nunca rode testes no esquema `public`.
+- Os testes não usam framework: são scripts com `assert`. Rode os cinco depois de mexer em models, controllers ou `schema.sql`.
 
 ## Estrutura
 
 - `app/` — o sistema (MVC): `Espiada.py` (entrada), `schema.sql`, `models/` (SQL e regras), `controllers/` (rotas), `views/` (HTML), `static/`
-- `scripts/` — `importar.py` (CSV → banco + logins) e `ampliar_dados.py` (gera o dataset de 5000 alunos, semente fixa)
-- `testes/` — os quatro testes
+- `scripts/` — `iniciar.py` (entrada do container), `importar.py` (CSV → banco + logins) e `ampliar_dados.py` (gera o dataset de 5000 alunos, semente fixa)
+- `testes/` — os cinco testes
 - `dados/` — CSVs do dataset e `LEIA-ME.md` com o dicionário
 
 `scripts/` e `testes/` acham os models colocando `app/` no `sys.path` no topo do arquivo; mantenha esse padrão.
@@ -46,6 +46,7 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 - Cada perfil vê só o que pode: aluno só ele mesmo, professor só alunos das próprias turmas, secretaria todos (`filtro_visiveis` em `app/models/alunos.py`).
 - `indicadores_risco` e `desfechos_alunos` nunca são variáveis de entrada da predição (vazamento: são a resposta pronta / o gabarito). O gabarito só é lido em `gabarito()` de `app/models/avaliacao.py`, para medir o acerto e servir de resposta no treino (`app/models/treino.py`).
 - Métrica do modelo treinado vem só dos alunos separados para o teste. Uma versão só entra em uso se o ganho de AUC for positivo em todo o IC 95%.
+- Estatística: professor só agrega registros das próprias turmas; fatores e comparações (usam desfecho e perfil socioeconômico) são só da secretaria. Avaliação por grupo usa só os alunos de teste.
 - O aluno vê o próprio nível de risco, mas não a porcentagem (`_com_risco` em `app/controllers/alunos.py`).
 - A LLM não recebe nome, matrícula, endereço nem outro identificador; o contexto é montado em `entrada_llm()`.
 - Regras duras valem acima do modelo e da LLM: frequência < 75% força "alto"; menos de 8 registros limita a "médio". Com modelo treinado, a LLM só comenta; sem ele, só se afasta 1 nível das regras.
@@ -66,6 +67,10 @@ Flask + PostgreSQL, MVC, front em HTML/CSS/JS puro, LLM local pelo Ollama. Dados
 
 ## Armadilhas conhecidas
 
+- O container `web-espiada` ocupa a porta 5000. Para rodar `app/Espiada.py` direto, pare-o antes (`docker compose stop web`).
+- O app roda em um único processo com várias threads, porque o andamento do recálculo e o bloqueio de login ficam em memória. Não aumente o número de processos sem mover esse estado para o banco.
+- Dentro do Docker, o banco é `banco:5432` e o Ollama do computador é `host.docker.internal:11434`. Fora dele, o banco é `127.0.0.1:5432`.
+- `.dockerignore` é uma lista do que pode entrar na imagem: pasta nova precisa ser liberada nele e copiada no `Dockerfile`.
 - Use `127.0.0.1`, não `localhost`, no endereço do banco: `localhost` tenta IPv6 primeiro e trava 8 s com o Docker.
 - O importador se recusa a importar num banco que já tem alunos (de propósito). Para reimportar, zere o banco.
 - Abrir conexão no PostgreSQL custa ~25 ms; por isso existe o pool. Não use `conectar()` em código chamado por aluno.

@@ -1,0 +1,8 @@
+# Lista do que PODE entrar na imagem: .env, .git, apresentações e o resto ficam de fora por padrão.
+*
+!requirements.txt
+!app/
+!scripts/
+!dados/
+!testes/
+**/__pycache__

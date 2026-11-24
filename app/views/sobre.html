@@ -158,7 +158,7 @@
     <a class="voltar" href="/">← Voltar ao sistema</a>
     <header>
       <h1>Espiada — SIMPA</h1>
-      <p>Sobre o projeto, termos de uso, privacidade e cookies · Última atualização: 30/10/2026</p>
+      <p>Sobre o projeto, termos de uso, privacidade e cookies · Última atualização: 23/11/2026</p>
     </header>
 
     <nav role="tablist" aria-label="Seções">
@@ -184,8 +184,9 @@
             <tr><th>Projeto</th><td>Espiada — SIMPA</td></tr>
             <tr><th>Versão</th><td>Em desenvolvimento</td></tr>
             <tr><th>Ano / semestre</th><td>2026/2</td></tr>
-            <tr><th>Tecnologias</th><td>Python com Flask, PostgreSQL, HTML, CSS e JavaScript; arquitetura MVC</td></tr>
+            <tr><th>Tecnologias</th><td>Python com Flask, PostgreSQL, Docker, HTML, CSS e JavaScript; arquitetura MVC</td></tr>
             <tr><th>Dados</th><td>Dataset sintético: 5000 alunos e 450 docentes de Engenharia de Software, semestres 2023-1 a 2026-2</td></tr>
+            <tr><th>Estatística</th><td>Medidas descritivas, histogramas, boxplots, intervalos de confiança, qui-quadrado, correlação, testes t de Welch, Mann-Whitney e McNemar, com correção de Holm; contas próprias em Python, sem biblioteca estatística</td></tr>
             <tr><th>Repositório</th><td><a href="https://github.com/diegounilalele/Projeto-SIMPA" rel="noopener">github.com/diegounilalele/Projeto-SIMPA</a></td></tr>
           </table>
         </div>
@@ -249,7 +250,7 @@
         <ul>
           <li>Manter a senha em sigilo e não compartilhar a conta.</li>
           <li>Usar os dados apenas para fins acadêmicos e de acompanhamento do aluno.</li>
-          <li>Não copiar, divulgar ou exportar dados de alunos para fora do sistema sem autorização.</li>
+          <li>Não copiar, divulgar ou exportar dados de alunos para fora do sistema sem autorização, o que inclui os arquivos CSV de estatística.</li>
           <li>Não tentar acessar dados ou funções de outro perfil. Toda tentativa negada fica registrada.</li>
         </ul>
       </section>
@@ -297,7 +298,8 @@
         <ul>
           <li>Autenticar o usuário e mostrar só os dados que o perfil dele pode ver.</li>
           <li>Calcular o risco de evasão e identificar alunos que precisam de acompanhamento.</li>
-          <li>Gerar indicadores para a coordenação e os professores.</li>
+          <li>Gerar indicadores e estatísticas agregadas para a coordenação e os professores, como médias, distribuições e taxas de aprovação.</li>
+          <li>Analisar, de forma agregada, a relação entre fatores acadêmicos e socioeconômicos e a evasão. Essa análise é restrita à secretaria.</li>
           <li>Proteger o sistema contra acessos indevidos.</li>
         </ul>
       </section>
@@ -317,6 +319,7 @@
       <section>
         <h3>6. Compartilhamento</h3>
         <p>Os dados não são vendidos nem compartilhados com terceiros. Ficam no servidor do próprio sistema.</p>
+        <p>As estatísticas e os arquivos CSV trazem só resultados agregados, sem nome nem matrícula. O professor vê apenas os das próprias turmas. Em grupos pequenos, um resultado agregado ainda pode permitir identificar alguém, por isso esses arquivos não devem ser divulgados.</p>
         <p>A explicação da predição usa um modelo de linguagem (LLM), o <strong>qwen3:4b</strong>, rodando no próprio servidor pelo Ollama: nenhum dado é enviado para a nuvem. Ele recebe os indicadores acadêmicos, o resumo por semestre, os comentários do aluno e o resultado do modelo estatístico, sem nome, matrícula ou endereço.</p>
         <p>A LLM foi usada apenas em <strong>testes locais</strong>. Os dados enviados a ela <strong>ainda não passaram por tratamento de acordo com a LGPD</strong>.</p>
       </section>

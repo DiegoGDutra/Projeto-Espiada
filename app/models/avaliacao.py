@@ -7,7 +7,7 @@ As regras e o significado de cada métrica estão no readme.md, seção "Avalia�
 import math
 from collections import Counter
 
-from models import alunos, modelo_risco, predicao
+from models import alunos, inferencia, modelo_risco, predicao
 from models.banco import consultar
 
 NIVEIS = predicao.NIVEIS  # ("baixo", "medio", "alto"): a ordem vira a pontuação do nível (0, 1, 2)
@@ -110,6 +110,18 @@ def bloco(niveis, real, pontos):
             "auc": auc(pontos, real), "auc_ic": ic_auc(pontos, real), "roc": curva_roc(pontos, real)}
 
 
+def teste_pareado(niveis_a, niveis_b, real):
+    """McNemar em cada corte, nos mesmos alunos: quantos só A acertou, quantos só B acertou e o valor-p."""
+    saida = {}
+    for nome, quais in CORTES.items():
+        certo_a = [(n in quais) == r for n, r in zip(niveis_a, real)]
+        certo_b = [(n in quais) == r for n, r in zip(niveis_b, real)]
+        so_a = sum(a and not b for a, b in zip(certo_a, certo_b))
+        so_b = sum(b and not a for a, b in zip(certo_a, certo_b))
+        saida[nome] = {"so_a": so_a, "so_b": so_b, "p": inferencia.mcnemar(so_a, so_b)}
+    return saida
+
+
 def gabarito():
     """{matricula: evadiu?}. Único ponto que lê desfechos_alunos: serve para medir o acerto e como resposta do treino."""
     return {linha["matricula"]: bool(linha["evasao_observada"]) for linha in consultar("""
@@ -146,6 +158,7 @@ def avaliar():
         "parcial": len(llm) < len(real),  # quem tem predição da LLM pode não ser uma amostra aleatória dos alunos
         "llm": bloco([n for n, _, _ in llm], real_llm, [NIVEIS.index(n) for n, _, _ in llm]),
         "regras": bloco([n for _, n, _ in llm], real_llm, [NIVEIS.index(n) for _, n, _ in llm]),
+        "teste_pareado": teste_pareado([n for n, _, _ in llm], [n for _, n, _ in llm], real_llm),  # a = LLM, b = regras
     }
     modelo = modelo_risco.ativo()
     resultado["modelo_treinado"] = modelo and {"id": modelo["id"], "criado_em": modelo["criado_em"],

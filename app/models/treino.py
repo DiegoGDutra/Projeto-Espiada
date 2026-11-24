@@ -129,15 +129,32 @@ def _calibracao(chances, real, grupos=5):
     return saida
 
 
-def treinar():
-    """Treina, testa e guarda uma nova versão. Devolve {id, aprovado, referencia, metricas}."""
+def _dados_de_treino():
+    """(matrículas em ordem, evadiu?, variáveis, resumo por matrícula): a mesma ordem gera a mesma divisão."""
     evadiu, dados = avaliacao.gabarito(), modelo_risco.variaveis()
     resumo = {a["matricula"]: a for a in alunos.listar({"perfil": "secretaria"})}
     matriculas = sorted(m for m in evadiu if m in dados and m in resumo)
-    real = [evadiu[m] for m in matriculas]
+    return matriculas, [evadiu[m] for m in matriculas], [dados[m] for m in matriculas], resumo
+
+
+def alunos_do_teste(modelo):
+    """Alunos que o modelo não viu no treino: [{aluno, evadiu, chance}]. Refaz a divisão e confere se ela reproduz a AUC
+    guardada; se os dados mudaram desde o treino, devolve None em vez de arriscar medir em alunos do treino."""
+    matriculas, real, valores, resumo = _dados_de_treino()
+    _, i_teste = dividir(real)
+    y, chances = [real[i] for i in i_teste], [modelo_risco.probabilidade(modelo["pesos"], valores[i]) for i in i_teste]
+    guardado = modelo["metricas"]
+    if (len(y), sum(y)) != (guardado["teste"]["alunos"], guardado["teste"]["evasoes"]) \
+            or avaliacao.auc(chances, y) != guardado["modelo"]["auc"]:
+        return None
+    return [{"aluno": resumo[matriculas[i]], "evadiu": r, "chance": c} for i, r, c in zip(i_teste, y, chances)]
+
+
+def treinar():
+    """Treina, testa e guarda uma nova versão. Devolve {id, aprovado, referencia, metricas}."""
+    matriculas, real, valores, resumo = _dados_de_treino()
     if min(sum(real), len(real) - sum(real)) < EVASOES_MINIMAS:
         raise ErroModelo(400, f"são necessários pelo menos {EVASOES_MINIMAS} alunos que evadiram e {EVASOES_MINIMAS} que ficaram")
-    valores = [dados[m] for m in matriculas]
     i_treino, i_teste = dividir(real)
     x_treino, y_treino = [valores[i] for i in i_treino], [real[i] for i in i_treino]
     pesos = ajustar(x_treino, y_treino)
