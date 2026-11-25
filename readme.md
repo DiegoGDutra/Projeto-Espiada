@@ -359,12 +359,12 @@ flowchart TD
 
 ## Banco de dados e API
 
-O banco tem 18 tabelas, criadas a partir de `app/schema.sql`. As regras de validação ficam no próprio banco: nota e frequência, por exemplo, só aceitam valores de 0 a 100. As tabelas formam quatro grupos:
+O banco tem 19 tabelas, criadas a partir de `app/schema.sql`. As regras de validação ficam no próprio banco: nota e frequência, por exemplo, só aceitam valores de 0 a 100. As tabelas formam quatro grupos:
 
 - **Estrutura acadêmica:** `cursos`, `periodos_curriculares`, `disciplinas`, `turmas` e `docentes`. A turma liga uma disciplina e um docente num semestre.
 - **O aluno:** `alunos` (o `codigo_academico`, como `AES0001`, é a matrícula), `matriculas_curso`, `registros_academicos` (notas e frequência por turma e tentativa), `enderecos_alunos`, `cidades`, `perfis_socioeconomicos`, `tipos_bolsa` e `bolsas_alunos`.
 - **Avaliação:** `indicadores_risco` traz um risco já calculado pelo dataset e **não** entra na predição, porque seria copiar a resposta; `desfechos_alunos` diz quem de fato evadiu em 12 meses e serve só para medir se a predição acerta.
-- **Do sistema:** `usuario`, `feedback` e `predicao_ia`, o histórico de predições com o nível, a origem (`llm` ou `regras`), o modelo e os detalhes do cálculo.
+- **Do sistema:** `usuario`, `feedback`, `predicao_ia`, o histórico de predições com o nível, a origem (`llm` ou `regras`), o modelo e os detalhes do cálculo, e `modelo_risco`, as versões do modelo treinado (aprovadas ou não) com os pesos e as métricas.
 
 ```mermaid
 erDiagram
@@ -384,6 +384,7 @@ erDiagram
     matriculas_curso ||--o{ indicadores_risco : "tem"
     matriculas_curso ||--o{ desfechos_alunos : "tem"
     matriculas_curso ||--o{ predicao_ia : "recebe"
+    modelo_risco |o--o{ predicao_ia : "calcula"
     alunos ||--o{ feedback : "envia"
     alunos |o--o| usuario : "loga como"
     docentes |o--o| usuario : "loga como"
