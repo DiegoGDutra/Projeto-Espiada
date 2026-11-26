@@ -890,6 +890,7 @@ async function mostrarFicha(matricula, el, resultado=null){
         <div class="stat-card"><div class="lbl">Distância do campus</div><div class="num">${a.distancia==null?"—":a.distancia+" km"}</div></div>
       </div>
       ${evolucaoFicha(a.evolucao, el.clientWidth - (parseFloat(getComputedStyle(el).paddingLeft)*2 || 0))}
+      ${tendenciaFicha(a.tendencia)}
       <h4>Histórico de risco</h4>
       ${perfil!=="aluno" ? `<button class="btn" id="fichaPrever">Gerar predição</button>` : ""}
       ${fatores ? `<div style="margin-top:10px">${fatores.map(f=>`
@@ -956,7 +957,7 @@ document.getElementById("predictBtn").addEventListener("click",async ()=>{
 });
 
 // ---------- avaliação do modelo (regras explicadas no readme.md, seção "Avaliação do modelo de risco") ----------
-let avaliacao = null, avaliacaoGrupos = null;
+let avaliacao = null, avaliacaoGrupos = null, avaliacaoTendencia = null;
 const pct = v => v==null ? "—" : (v*100).toFixed(1).replace(".",",")+"%";
 const dec = v => v==null ? "—" : v.toFixed(3).replace(".",",");
 const faixa = (ic, f=pct) => ic ? `IC 95%: ${f(ic[0])} a ${f(ic[1])}` : "";
@@ -970,7 +971,8 @@ const METRICAS = [
 async function carregarAvaliacao(){
   const el = document.getElementById("avaliacaoConteudo");
   try{
-    [avaliacao, avaliacaoGrupos] = await Promise.all([api("/api/avaliacao"), api("/api/estatisticas/avaliacao")]);
+    [avaliacao, avaliacaoGrupos, avaliacaoTendencia] = await Promise.all([api("/api/avaliacao"), api("/api/estatisticas/avaliacao"),
+      api("/api/estatisticas/tendencia")]);
     renderAvaliacao();
   }
   catch(e){ el.innerHTML = `<div class="panel"><p class="erro-msg">Não foi possível avaliar o modelo: ${esc(e.message)}</p></div>`; }
@@ -1056,6 +1058,7 @@ function renderAvaliacao(){
       <p class="note">O IC 95% (intervalo de confiança) é a faixa de valores plausíveis para a medida, dada a quantidade de alunos. Ele cobre só a incerteza da amostra: como os dados são sintéticos, não mostra se o modelo funcionaria com alunos reais.</p>
     </div>
     ${painelAvaliacaoGrupos(avaliacaoGrupos)}
+    ${painelTendencia(avaliacaoTendencia)}
     <div class="panel"><h3>LLM x regras nos mesmos alunos</h3>${comparacao}</div>`;
   document.getElementById("avCorte").addEventListener("change", renderAvaliacao);
 }
@@ -1074,6 +1077,32 @@ function painelAvaliacaoGrupos(g){
     <h4 style="font-size:13.5px;margin:18px 0 8px">Turmas do semestre em curso</h4>
     <p class="aviso">${t.suficientes===0 ? `Nenhuma das ${t.total} turmas tem evasões suficientes para calcular a AUC: a maior reúne ${t.maior_turma} alunos do teste. Use estas linhas só como contagem, sem comparar o acerto entre turmas.` : `${t.suficientes} de ${t.total} turmas têm evasões suficientes para calcular a AUC.`}</p>
     <div class="table-wrap"><table class="ficha est-tabela">${cabeca("10 turmas com mais evasões no teste")}<tbody>${t.linhas.map(linha).join("")}</tbody></table></div>
+  </div>`;
+}
+
+// tendência: o último semestre concluído dos alunos do teste fica escondido, é previsto e só depois comparado
+const pts = v => v==null ? "—" : "±" + num(v,2);
+function painelTendencia(t){
+  if(!t) return "";
+  const NOMES = {modelo:"Modelo", repetir_anterior:"Repetir o semestre anterior", reta:"Seguir a reta dos semestres"};
+  const tabela = a => { const d = t.alvos[a]; return `<div class="table-wrap"><table class="ficha"><thead><tr><th>${NOME_VARIAVEL[a]}</th><th>Erro médio</th><th>Erro de até ${num(t.perto,0)}</th><th>Direção certa</th></tr></thead><tbody>
+    ${Object.entries(NOMES).map(([k,nome])=>`<tr><td>${k==="modelo"?`<b>${nome}</b>`:nome}</td><td>${pts(d[k].erro_medio)}</td><td>${pct(d[k].perto)}</td><td>${pct(d[k].direcao)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="note">${d.aprovado ? `O modelo erra ${num(d.ganho.valor,2)} ponto(s) a menos que repetir o semestre anterior (IC 95%: ${num(d.ganho.ic[0],2)} a ${num(d.ganho.ic[1],2)}), então é ele que faz a previsão.` : `O modelo não errou menos que repetir o semestre anterior em todo o IC 95% (${num(d.ganho.ic[0],2)} a ${num(d.ganho.ic[1],2)}), então a previsão repete o semestre anterior.`}</p>`; };
+  const seta = d => ({sobe:"↑ sobe", desce:"↓ desce", "estável":"→ estável"})[d];
+  return `<div class="panel">
+    <h3>Tendência de nota e frequência</h3>
+    <p class="note">Aprendeu com ${t.alunos_treino} alunos. Nos ${t.alunos_teste} alunos do teste, o último semestre concluído ficou escondido: o modelo previu a média dele só com os semestres anteriores, e a previsão foi comparada com o que aconteceu. Mudança de até ${num(t.limiar,0)} pontos conta como estável.</p>
+    <div class="two-col"><div>${tabela("nota")}</div><div>${tabela("frequencia")}</div></div>
+    <h4 style="font-size:13.5px;margin:18px 0 8px">Previsto x real por período (semestre escondido, só alunos do teste)</h4>
+    <div class="table-wrap"><table class="ficha est-tabela"><thead><tr><th>Período</th><th>Alunos</th><th>Semestre</th><th>Nota prevista</th><th>Nota real</th><th>Frequência prevista</th><th>Frequência real</th></tr></thead><tbody>
+      ${t.por_periodo.map(p=>`<tr><td>${p.periodo}º</td><td>${p.alunos}</td><td>${esc(p.semestre)}</td><td>${num(p.nota.previsto)}</td><td>${num(p.nota.real)}</td><td>${num(p.frequencia.previsto)}%</td><td>${num(p.frequencia.real)}%</td></tr>`).join("")}
+    </tbody></table></div>
+    <h4 style="font-size:13.5px;margin:18px 0 8px">Previsão para o próximo semestre, por período</h4>
+    <div class="table-wrap"><table class="ficha est-tabela"><thead><tr><th>Período</th><th>Alunos</th><th>Semestre</th><th>Nota</th><th>Frequência</th></tr></thead><tbody>
+      ${t.previsao_periodos.map(p=>`<tr><td>${p.periodo}º</td><td>${p.alunos}</td><td>${esc(p.semestre)}</td><td>${num(p.nota.previsto)} <small class="vazio">${seta(p.nota.direcao)} (era ${num(p.nota.anterior)})</small></td><td>${num(p.frequencia.previsto)}% <small class="vazio">${seta(p.frequencia.direcao)} (era ${num(p.frequencia.anterior)}%)</small></td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="note">Os dados são sintéticos: o acerto aqui não prova que a previsão funcionaria com alunos reais.</p>
   </div>`;
 }
 
@@ -1205,6 +1234,11 @@ function graficoLinha(pontos, H=250, W=620){
   const alvos = pontos.map((p,i)=>`<rect class="alvo" x="${x(i)-faixa/2}" y="${m.t}" width="${faixa}" height="${H-m.t-m.b}" data-dica="${esc(p.semestre)}${p.parcial?" (em curso, nota parcial)":""}\nNota ${num(p.nota)} · Frequência ${num(p.frequencia)}%"/>`).join("");
   return `<svg class="est-grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução de nota e frequência em ${pontos.length} semestres">${grade}${marcasX}${desenho}${alvos}</svg>
     <div class="legenda"><span><i style="background:var(--serie-1)"></i>Nota</span><span><i style="background:var(--serie-2)"></i>Frequência (%)</span>${pontos.some(p=>p.parcial)?`<span>Ponto vazado: semestre em curso, fora da tendência</span>`:""}</div>`;
+}
+function tendenciaFicha(t){
+  if(!t) return "";
+  const parte = (a, nome, u) => { const d = t[a]; return `${nome} ${num(d.previsto)}${u} (${d.direcao}, era ${num(d.anterior)}${u}; erro médio de ${num(d.erro_medio,1)} no teste)`; };
+  return `<p class="vazio" style="margin-top:4px">Previsão para ${esc(t.semestre)}${t.em_curso?" (em curso)":""}: ${parte("nota","nota","")} · ${parte("frequencia","frequência","%")}.</p>`;
 }
 const textoTendencia = v => v==null ? "—" : `${v>0?"+":""}${num(v,2)}`;
 function evolucaoFicha(ev, largura){

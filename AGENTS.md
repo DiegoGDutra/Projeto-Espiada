@@ -46,6 +46,7 @@ docker compose exec web python testes/teste_estatistica.py  # ~20 s
 - Cada perfil vê só o que pode: aluno só ele mesmo, professor só alunos das próprias turmas, secretaria todos (`filtro_visiveis` em `app/models/alunos.py`).
 - `indicadores_risco` e `desfechos_alunos` nunca são variáveis de entrada da predição (vazamento: são a resposta pronta / o gabarito). O gabarito só é lido em `gabarito()` de `app/models/avaliacao.py`, para medir o acerto e servir de resposta no treino (`app/models/treino.py`).
 - Métrica do modelo treinado vem só dos alunos separados para o teste. Uma versão só entra em uso se o ganho de AUC for positivo em todo o IC 95%.
+- Tendência (`app/models/tendencia.py`): o último semestre concluído dos alunos de teste é o gabarito e fica escondido até a comparação. O modelo só prevê se errar menos que repetir o semestre anterior em todo o IC 95%. O treino fica em cache no processo (`functools.cache`): mudou nota ou frequência com o servidor no ar, reinicie.
 - Estatística: professor só agrega registros das próprias turmas; fatores e comparações (usam desfecho e perfil socioeconômico) são só da secretaria. Avaliação por grupo usa só os alunos de teste.
 - O aluno vê o próprio nível de risco, mas não a porcentagem (`_com_risco` em `app/controllers/alunos.py`).
 - A LLM não recebe nome, matrícula, endereço nem outro identificador; o contexto é montado em `entrada_llm()`.

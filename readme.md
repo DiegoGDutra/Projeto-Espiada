@@ -21,6 +21,7 @@ O Espiada é um sistema web que acompanha o desempenho dos alunos e aponta quem 
 - **Perfis de acesso:** o aluno vê só o próprio desempenho; o professor vê só os alunos que passaram pelas turmas dele; a secretaria vê todos e cadastra usuários. Qualquer tentativa fora disso é negada e registrada no log.
 - **Feedback do aluno:** na tela Meu desempenho, o aluno avalia o curso ou a instituição (nota de 1 a 5 e comentário opcional) e vê a lista dos feedbacks que já enviou. O professor e a secretaria veem os feedbacks na ficha do aluno. Avaliação 1 ou 2 conta como reclamação no cálculo de risco.
 - **Avaliação do modelo:** a secretaria vê quanto o risco previsto acerta, comparado com quem de fato evadiu: matriz de confusão, precisão, revocação, F1, curva ROC, intervalos de confiança de 95%, o acerto por período e por turma e a comparação pareada entre regras e LLM. A seção [Avaliação do modelo de risco](#avaliação-do-modelo-de-risco) explica as regras.
+- **Tendência:** a ficha do aluno mostra a nota e a frequência previstas para o próximo semestre, e a aba Avaliação mostra a previsão de cada período e quanto ela acerta num semestre escondido. A seção [Tendência de nota e frequência](#tendência-de-nota-e-frequência) explica como.
 - **Estatística:** medidas descritivas, histogramas, boxplots, aprovação e reprovação, evolução por semestre e exportação em CSV, com filtros por período, semestre, disciplina e turma. O professor vê só as próprias turmas. A secretaria também vê os fatores ligados à evasão e a comparação entre grupos. A seção [Estatística](#estatística) explica cada cálculo.
 - **Turmas:** a aba Turmas lista as turmas com disciplina, docente, semestre, turno, modalidade e vagas, com busca e filtro por semestre.
 - **Cadastro de usuários:** a secretaria cadastra aluno, professor ou secretaria pela aba Config.
@@ -122,6 +123,26 @@ flask --app app/Espiada.py treinar-modelo
 | Revocação (só alto) | 34,4% | 49,2% |
 
 O ganho de AUC sobre as regras é de 0,042 (IC 95%: 0,007 a 0,079). A porcentagem é calibrada: no grupo de maior risco do teste, o modelo previu 38,0% de evasão e 37,0% evadiram. Nos 5000 alunos, a maior chance estimada é 74%, e a média é de 42% no nível alto, 21% no médio e 6% no baixo.
+
+## Tendência de nota e frequência
+
+Além do risco, o sistema prevê a **média de nota e de frequência do próximo semestre** de cada aluno (na ficha) e de cada período (na aba Avaliação). O código fica em `app/models/tendencia.py`, e o treino é feito sozinho na primeira vez que a previsão é pedida.
+
+1. **Modelo.** Uma regressão linear com regularização (ridge), escrita sem biblioteca nova, uma para a nota e outra para a frequência. É aprendizado supervisionado: cada exemplo é o histórico do aluno até um semestre, e a resposta certa é a média do semestre seguinte.
+2. **Variáveis.** Média do último semestre, média de todos os semestres, inclinação da reta (de nota e de frequência), reprovações do último semestre e quantidade de semestres. Só entram semestres concluídos, porque nota parcial não se compara com a final. Não entram nome, matrícula, perfil socioeconômico, `indicadores_risco` nem `desfechos_alunos`.
+3. **Gabarito escondido.** Os alunos são divididos em 80% para treino e 20% para teste, sempre da mesma forma. O modelo aprende com todos os semestres dos alunos de treino. Dos alunos de teste, o último semestre concluído fica escondido: o modelo prevê esse semestre só com os anteriores, e só depois a previsão é comparada com o que aconteceu.
+4. **Referências.** O modelo é comparado com dois jeitos simples de prever: repetir a média do semestre anterior e seguir a reta dos semestres. Ele só é usado se errar menos que repetir o semestre anterior em todo o intervalo de confiança de 95% (bootstrap pareado). Senão, a previsão repete o semestre anterior.
+5. **Direção.** Mudança de até 2 pontos conta como estável. Acima disso, a nota ou a frequência sobe ou desce.
+
+**Resultado (741 alunos de teste, semestre escondido 2026.1)**
+
+| No semestre escondido | Nota: erro médio | Nota: erro de até 5 | Nota: direção certa | Frequência: erro médio |
+|---|---|---|---|---|
+| Modelo | 3,01 | 81,9% | 54,8% | 2,08 |
+| Repetir o semestre anterior | 3,76 | 71,4% | 30,1% | 2,32 |
+| Seguir a reta dos semestres | 3,89 | 71,5% | 43,6% | 2,80 |
+
+O modelo erra 0,75 ponto a menos na nota (IC 95%: 0,54 a 0,94) e 0,25 a menos na frequência (IC 95%: 0,15 a 0,35), então é ele que faz a previsão. Na média de cada período, a nota prevista ficou a até 3 pontos da real. O modelo tende a puxar as previsões para a média geral: quem foi muito bem no último semestre costuma aparecer com uma leve queda prevista, e quem foi mal, com uma leve alta. Como os dados são sintéticos, isso não prova acerto com alunos reais.
 
 ## Estatística
 
@@ -278,6 +299,7 @@ Projeto-Espiada/
     │   ├── predicao.py              # regras, regras duras, decisão final, recálculo e histórico
     │   ├── modelo_risco.py          # variáveis do aluno e chance de evasão pelo modelo treinado
     │   ├── treino.py                # treina, testa e aprova o modelo de risco
+    │   ├── tendencia.py             # prevê nota e frequência do próximo semestre e mede o acerto num semestre escondido
     │   ├── llm.py                   # cliente do Ollama: prompt fixo e resposta validada
     │   ├── avaliacao.py             # compara o risco previsto com o gabarito (matriz de confusão, F1, AUC, IC 95%)
     │   ├── estatistica.py           # medidas, distribuições, aprovação, evolução, fatores e CSV
@@ -398,7 +420,7 @@ A API fica toda em `/api/...`, usa JSON na entrada e na saída e exige login em 
 - **Estrutura acadêmica:** `GET /api/cursos`, `/api/disciplinas`, `/api/docentes` e `/api/turmas`.
 - **Alunos:** `GET /api/alunos` (lista com indicadores e risco atual), `GET /api/alunos/{matricula}` (ficha com as disciplinas) `POST /api/alunos/{matricula}/feedback` (só o próprio aluno) e `GET` na mesma rota (feedbacks do aluno, para quem pode vê-lo).
 - **Predições:** `POST /api/alunos/{matricula}/predicao` gera e grava uma predição, e `GET` na mesma rota devolve o histórico; `POST /api/predicoes/recalcular` e `GET /api/predicoes/recalculo` cuidam do recálculo em lote, e `GET /api/avaliacao` mede o acerto das predições (só secretaria).
-- **Estatística:** `GET /api/estatisticas` (tudo da aba, com filtros `periodo`, `semestre`, `disciplina` e `turma`), `/api/estatisticas/opcoes`, `/api/estatisticas/descritiva` e `/api/estatisticas/exportar/{tabela}` para professor e secretaria; `/api/estatisticas/evasao` e `/api/estatisticas/avaliacao` só para a secretaria.
+- **Estatística:** `GET /api/estatisticas` (tudo da aba, com filtros `periodo`, `semestre`, `disciplina` e `turma`), `/api/estatisticas/opcoes`, `/api/estatisticas/descritiva` e `/api/estatisticas/exportar/{tabela}` para professor e secretaria; `/api/estatisticas/evasao`, `/api/estatisticas/avaliacao` e `/api/estatisticas/tendencia` só para a secretaria. A ficha do aluno (`GET /api/alunos/{matricula}`) também traz a previsão de tendência do próximo semestre.
 
 ## Limitações conhecidas
 

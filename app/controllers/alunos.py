@@ -2,7 +2,7 @@
 from flask import Blueprint, abort, jsonify, session
 
 from controllers.comum import exige, ler_json, negar
-from models import alunos, estatistica, feedback, modelo_risco, predicao
+from models import alunos, estatistica, feedback, modelo_risco, predicao, tendencia
 
 bp = Blueprint("alunos", __name__)
 
@@ -39,6 +39,7 @@ def obter_aluno(matricula):
     aluno = _com_risco(aluno, predicao.ultima(matricula), modelo_risco.prever([matricula]).get(matricula))
     aluno["disciplinas"] = alunos.disciplinas(matricula)
     aluno["evolucao"] = estatistica.evolucao_aluno(aluno["disciplinas"])
+    aluno["tendencia"] = tendencia.prever_aluno(matricula)
     return jsonify(aluno)
 
 

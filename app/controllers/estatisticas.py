@@ -2,7 +2,7 @@
 from flask import Blueprint, Response, jsonify, request, session
 
 from controllers.comum import exige
-from models import estatistica
+from models import estatistica, tendencia
 
 bp = Blueprint("estatisticas", __name__)
 
@@ -36,6 +36,12 @@ def evasao():
 def avaliacao_por_grupo():
     exige("secretaria")
     return jsonify(estatistica.avaliacao_por_grupo())
+
+
+@bp.get("/api/estatisticas/tendencia")
+def tendencia_periodos():
+    exige("secretaria")  # usa todos os alunos
+    return jsonify(tendencia.resumo())
 
 
 @bp.get("/api/estatisticas/exportar/<tabela>")

@@ -9,7 +9,7 @@ sys.path[:0] = [str(RAIZ / "app"), str(RAIZ / "scripts")]  # o sistema fica em a
 
 import Espiada
 from importar import LOGINS_PADRAO, importar
-from models import alunos, avaliacao, banco, llm, modelo_risco, predicao, treino
+from models import alunos, avaliacao, banco, llm, modelo_risco, predicao, tendencia, treino
 
 # ---------- contas puras, com números conhecidos ----------
 assert modelo_risco._inclinacao([1, 2, 3], [10, 8, 6]) == -2 and modelo_risco._inclinacao([1], [10]) == 0
@@ -117,4 +117,39 @@ api.post("/api/logout")
 entra("professor@simpa.test")
 assert all(a["probabilidade"] is not None for a in api.get("/api/alunos").get_json())
 assert api.get("/api/avaliacao").status_code == 403
+
+# ---------- tendência de nota e frequência: semestre escondido, previsto e só depois comparado ----------
+assert tendencia.semestre_rotulo(2026 * 2 + 1) == "2026.1" and tendencia.semestre_rotulo(2026 * 2 + 2) == "2026.2"
+assert [tendencia.direcao(70, v) for v in (72, 72.1, 67.9)] == ["estável", "sobe", "desce"]
+feitos = [{"ordem": 1, "nota": 60.0, "frequencia": 80.0, "reprovacoes": 1}, {"ordem": 2, "nota": 70.0, "frequencia": 90.0, "reprovacoes": 0}]
+assert tendencia.calcular_variaveis(feitos) == [70, 65, 10, 90, 85, 10, 0, 2]
+reta = tendencia.ajustar([[float(i)] for i in range(50)], [2.0 * i + 10 for i in range(50)])
+assert abs(tendencia.prever_valor(reta, [20.0]) - 50) < 0.5  # aprende uma reta conhecida (a penalidade puxa pouco)
+tr, te = tendencia.dividir([f"A{i}" for i in range(1000)])
+assert not tr & te and len(te) == 200 and (tr, te) == tendencia.dividir([f"A{i}" for i in range(1000)])
+codigo = inspect.getsource(tendencia).lower()
+assert "join desfechos_alunos" not in codigo and "from desfechos_alunos" not in codigo and "join indicadores_risco" not in codigo
+assert "avaliacao" not in codigo  # nem o gabarito de evasão (avaliacao.gabarito): a tendência não depende dele
+
+t = tendencia.avaliar()
+historicos = tendencia._historicos()
+i_tr, i_te = tendencia.dividir(historicos)
+assert t["alunos_teste"] == sum(len(historicos[m][1]) > 1 for m in i_te) > 500 and t["alunos_treino"] > 2000
+for a in tendencia.ALVOS:
+    d = t["alvos"][a]
+    assert d["aprovado"] and d["modelo"]["erro_medio"] < d["repetir_anterior"]["erro_medio"], d  # erra menos que repetir
+    assert 0 < d["ganho"]["ic"][0] <= d["ganho"]["valor"] <= d["ganho"]["ic"][1], d["ganho"]
+assert all(p["semestre"] == "2026.1" for p in t["por_periodo"]) and sum(p["alunos"] for p in t["por_periodo"]) == t["alunos_teste"]
+
+r = api.get(f"/api/alunos/{api.get('/api/alunos').get_json()[0]['matricula']}")  # professor: a ficha traz a previsão
+assert r.status_code == 200 and "tendencia" in r.get_json()
+assert api.get("/api/estatisticas/tendencia").status_code == 403  # a visão de todos os alunos é só da secretaria
+api.post("/api/logout")
+entra("secretaria@simpa.test")
+com_historico = next(m for m, h in historicos.items() if len(h[1]) > 2)
+p = api.get(f"/api/alunos/{com_historico}").get_json()["tendencia"]
+assert p["semestre"] == "2026.2" and p["em_curso"] and p["nota"]["metodo"] == "modelo" and 0 <= p["nota"]["previsto"] <= 100, p
+assert p["nota"]["anterior"] == round(historicos[com_historico][1][-1]["nota"], 1), p
+r = api.get("/api/estatisticas/tendencia").get_json()
+assert "pesos" not in r["alvos"]["nota"] and [x["periodo"] for x in r["previsao_periodos"]] == list(range(2, 9)), r["previsao_periodos"]
 print("ok: treinamento do modelo funciona")
